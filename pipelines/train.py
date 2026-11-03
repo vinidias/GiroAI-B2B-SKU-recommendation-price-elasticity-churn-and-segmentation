@@ -10,8 +10,12 @@ from src.config import DATA_DIR, MLFLOW_DB, RAW_FILES
 from src.data.synthetic import generate, write_to_disk
 from src.data.validate import load_and_validate_all
 from src.experiments.ab_test import simulate_experiment
-from src.features.build import (build_churn_features, build_elasticity_features,
-                                build_interactions, build_segmentation_features)
+from src.features.build import (
+    build_churn_features,
+    build_elasticity_features,
+    build_interactions,
+    build_segmentation_features,
+)
 from src.models.churn import train_churn
 from src.models.elasticity import fit_elasticity
 from src.models.recommender import evaluate_at_k, train_recommender

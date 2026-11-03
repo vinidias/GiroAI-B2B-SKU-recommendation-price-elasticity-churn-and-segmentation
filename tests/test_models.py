@@ -1,8 +1,12 @@
 import pytest
 
 from src.data.synthetic import generate
-from src.features.build import (build_churn_features, build_elasticity_features,
-                                build_interactions, build_segmentation_features)
+from src.features.build import (
+    build_churn_features,
+    build_elasticity_features,
+    build_interactions,
+    build_segmentation_features,
+)
 from src.models.churn import train_churn
 from src.models.elasticity import fit_elasticity
 from src.models.recommender import recommend, train_recommender

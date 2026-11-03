@@ -51,7 +51,7 @@ def recommend(result: RecommenderResult, user_id: int, n: int = 10):
     # build a CSR user-items matrix (implicit >=0.7 requires sparse input)
     user_items = sp.csr_matrix(result.model.user_factors[u].reshape(1, -1))
     ids, scores = result.model.recommend(u, user_items, N=n, filter_already_liked_items=True)
-    return [(int(result.item_ids[i]), float(s)) for i, s in zip(ids, scores)]
+    return [(int(result.item_ids[i]), float(s)) for i, s in zip(ids, scores, strict=False)]
 
 
 def evaluate_at_k(result: RecommenderResult, interactions: pd.DataFrame, k: int = 10) -> dict:

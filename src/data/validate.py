@@ -4,7 +4,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-import pandera.pandas as pa
 from pandera.pandas import Check, Column, DataFrameSchema
 
 from src.config import DATA_DIR, RAW_FILES

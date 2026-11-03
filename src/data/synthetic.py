@@ -35,7 +35,7 @@ def generate(n_customers: int = 400, n_products: int = 120, n_orders: int = 6000
 
     base_price = (produtos["custo_unitario"] * rng.uniform(1.2, 2.0, n_products)).round(2)
     price_rows = []
-    for pid, bp in zip(produtos["produto_id"], base_price):
+    for pid, bp in zip(produtos["produto_id"], base_price, strict=False):
         for _ in range(rng.integers(3, 7)):
             mult = rng.uniform(0.85, 1.15)
             price_rows.append({
@@ -65,7 +65,7 @@ def generate(n_customers: int = 400, n_products: int = 120, n_orders: int = 6000
     })
 
     item_rows = []
-    for oid, odate in zip(pedidos["pedido_id"], pedidos["data_pedido"]):
+    for oid, odate in zip(pedidos["pedido_id"], pedidos["data_pedido"], strict=False):
         n_items = int(rng.integers(1, 7))
         chosen = rng.choice(produtos["produto_id"], size=n_items, replace=False, p=pop)
         for pid in chosen:
