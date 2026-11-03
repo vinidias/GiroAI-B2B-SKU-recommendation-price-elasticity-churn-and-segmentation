@@ -104,12 +104,101 @@ however good the absolute number looks.
 
 ## 🛠️ How the pipeline works
 
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph sources["📥 Sources"]
+        A1[Atacado Atlas<br/>22 CSVs · 52k orders]
+        A2[CEPEA / USDA<br/>via agrobr]
+    end
+
+    subgraph ingest["🧹 Ingest"]
+        B1[validate.py<br/>14 anomaly cleaners]
+        B2[macro.py<br/>monthly commodity index]
+    end
+
+    subgraph feat["⚙️ Features"]
+        C1[elasticity panel<br/>log price × log qty]
+        C2[RFM + revenue windows]
+        C3[interaction matrix<br/>customer × SKU]
+    end
+
+    subgraph models["🤖 Models"]
+        D1[within-SKU OLS]
+        D2[calibrated LightGBM]
+        D3[KMeans / DBSCAN]
+        D4[implicit ALS]
+    end
+
+    subgraph eval["📊 Evaluate"]
+        E1[MLflow metrics]
+        E2[Welch + bootstrap]
+        E3[Evidently drift]
+    end
+
+    A1 --> B1
+    A2 --> B2
+    B1 --> C1 & C2 & C3
+    B2 --> C1
+    C1 --> D1
+    C2 --> D2 & D3
+    C3 --> D4
+    D1 & D2 & D3 & D4 --> E1
+    E1 --> E2 & E3
 ```
-Atlas CSVs ──► validate.py ──► features/build.py ──► models/ ──► MLflow
-                │                    │                   │
-       14 anomalies cleaned     RFM · price panel    OLS · LightGBM
-       audit log per step       interactions         KMeans · ALS
+
+### The four models, side by side
+
+```mermaid
+flowchart TB
+    Q1["💰 Does demand<br/>respond to price?"] --> M1["Within-SKU × month<br/>fixed-effects OLS"]
+    Q2["🚪 Which customers<br/>are leaving?"] --> M2["LightGBM + sigmoid<br/>calibration"]
+    Q3["👥 Which customers<br/>behave alike?"] --> M3["KMeans (k by silhouette)<br/>+ DBSCAN comparison"]
+    Q4["🎁 What should we<br/>recommend?"] --> M4["implicit ALS<br/>latent factors = 64"]
+
+    M1 --> R1["ε per category<br/>+ p-value"]
+    M2 --> R2["P(churn) per customer<br/>+ revenue at risk"]
+    M3 --> R3["segment profile<br/>+ silhouette"]
+    M4 --> R4["top-k SKUs<br/>+ recall@10"]
+
+    R1 & R2 & R3 & R4 --> L["MLflow tracking<br/>+ run_summary.json"]
 ```
+
+### Causal chain for price
+
+```mermaid
+flowchart LR
+    P1["🌾 CEPEA commodity index<br/>real, monthly"] -->|macro_coupling 0.6| P2["SKU cost<br/>per category"]
+    P2 -->|markup| P3["list price<br/>monthly"]
+    P3 -->|price table<br/>factor 0.88–1.12| P4["effective price<br/>per customer"]
+    P4 -->|promotion 0–40%| P5["price paid<br/>per line item"]
+    P5 -->|elasticity ε| P6["quantity demanded"]
+
+    style P1 fill:#fef3c7,stroke:#d97706
+    style P5 fill:#dbeafe,stroke:#2563eb
+    style P6 fill:#dcfce7,stroke:#16a34a
+```
+
+### Data lineage: from raw CSV to a reported metric
+
+```mermaid
+flowchart TD
+    R["data/raw/*.csv<br/>638k rows"] -->|drop 24 duplicates<br/>drop 1 empty key<br/>drop 12 junk rows| C["clean tables<br/>52,397 orders · 147,053 items"]
+    C -->|box-price fix<br/>25,556 items| P["correct prices"]
+    C -->|discount recompute<br/>76,027 items| V["consistent values"]
+    P & V --> F["feature frames"]
+    F --> M["model fit"]
+    M --> MET["metric in MLflow"]
+    MET --> CHK{"sanity check<br/>passes?"}
+    CHK -->|no| AUDIT["🔍 investigate<br/>(this is how anomaly 7<br/>was found)"]
+    CHK -->|yes| DONE["✅ reported in README"]
+
+    style AUDIT fill:#fee2e2,stroke:#dc2626
+    style DONE fill:#dcfce7,stroke:#16a34a
+```
+
+### Stage reference
 
 | Stage | Module | What it does |
 |---|---|---|
