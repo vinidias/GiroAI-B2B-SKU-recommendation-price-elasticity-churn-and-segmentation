@@ -49,3 +49,27 @@ The loader validates them against Pandera schemas and the pipeline runs unchange
 - `seg_k`, `seg_silhouette`, `seg_davies_bouldin`
 - `recall_at_10`, `ab_p_value`, `ab_uplift_pct`
 
+ 
+﻿
+
+## Macro features (agrobr / CEPEA)
+
+The elasticity model is enriched with real Brazilian commodity prices fetched via
+[**agrobr**](https://github.com/bruno-portfolio/agrobr) (CEPEA/ESALQ daily spot):
+
+| Category | CEPEA commodity |
+|---|---|
+| Bebidas | cafe |
+| Mercearia | milho |
+| Limpeza | algodao |
+| Perecíveis | boi_gordo |
+| Congelados | frango_congelado |
+| Higiene | soja |
+
+- src/data/macro.py fetches the 6 indicators (5,742 daily observations), caches to data/interim/cepea_daily.parquet, aggregates monthly, and joins on ano_mes + commodity.
+- src/models/elasticity.py adds log_preco_commodity as a covariate when available.
+- Fails gracefully: if the network is down, the model runs without the macro term.
+- 3 hermetic tests in tests/test_macro.py (no network needed).
+
+**License note**: CEPEA data is CC BY-NC 4.0 - attribution required, commercial use needs CEPEA authorization.
+
