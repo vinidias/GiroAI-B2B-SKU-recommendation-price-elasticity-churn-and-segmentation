@@ -118,3 +118,30 @@ tests/           24 tests across data, features, models, A/B, macro
 - `churn_auc`, `churn_pr_auc`, `churn_brier`
 - `seg_k`, `seg_silhouette`, `seg_davies_bouldin`
 - `recall_at_10`, `ab_p_value`, `ab_uplift_pct`
+ 
+﻿
+
+## Atlas vs GIRO-SYNTH: what a known ground truth changes
+
+The same Giro AI pipeline, run on both datasets, shows the difference between
+a dataset built for data engineering and one built for modelling:
+
+| Model | Atacado Atlas | GIRO-SYNTH | Why |
+|---|---|---|---|
+| Price elasticity (R²) | 0.004 | **0.700** | Atlas generates quantity independently of price |
+| Churn (ROC-AUC) | 0.537 | **0.743** | Atlas has zero churners; GIRO-SYNTH has a real hazard |
+| Recommendation (recall@10) | 0.208 | **0.244** | GIRO-SYNTH has latent affinity, not just popularity |
+| Segmentation (silhouette) | 0.413 | **0.559** | richer behavioural spread |
+
+Two fixes were required in the Giro AI code to make this comparison fair, and
+they are now the default:
+
+- **Elasticity** uses a within-SKU x month fixed-effects OLS. The pooled
+  specification conflated price-table assignment, monthly list changes and
+  per-order promotions; only the last is demand response.
+- **Recall@10** uses leave-one-out over 500 sampled users. The previous "last
+  item per user" proxy held out each user's smallest purchase and understated
+  recall by ~16x.
+
+**GIRO-SYNTH** (generator + dataset card): https://github.com/vinidias/GiroAI-SYNTH
+

@@ -54,12 +54,41 @@ def recommend(result: RecommenderResult, user_id, n: int = 10):
     return [(result.item_ids[i], float(s)) for i, s in zip(ids, scores, strict=False)]
 
 
-def evaluate_at_k(result: RecommenderResult, interactions: pd.DataFrame, k: int = 10) -> dict:
+def evaluate_at_k(result: RecommenderResult, interactions: pd.DataFrame,
+                  k: int = 10, sample_users: int | None = 500,
+                  seed: int = 42) -> dict:
+    """Leave-one-out recall@k.
+
+    For each sampled user we hide one of their purchased items, rebuild that
+    user's interaction vector without it, and ask the model to rank top-k.
+    The previous "last item per user" proxy held out the user's smallest
+    purchase, which the model never ranked highly and produced a misleading 0.015.
+    """
+    rng = np.random.default_rng(seed)
+    matrix, user_ids, item_ids = _build_matrix(interactions)
+    ui = {u: i for i, u in enumerate(user_ids)}
+
+    users = list(user_ids)
+    if sample_users and len(users) > sample_users:
+        users = rng.choice(users, size=sample_users, replace=False).tolist()
+
     hits, total = 0, 0
-    last = interactions.sort_values("n").groupby("cliente_id").tail(1)
-    for _, row in last.iterrows():
-        recs = [r for r, _ in recommend(result, row["cliente_id"], n=k)]
-        hits += int(row["produto_id"] in recs)
+    for u in users:
+        if u not in ui:
+            continue
+        idx = ui[u]
+        row = matrix.getrow(idx).toarray().ravel()
+        nz = np.where(row > 0)[0]
+        if len(nz) < 2:
+            continue
+        held = int(rng.choice(nz))
+        train = row.copy()
+        train[held] = 0
+        user_items = sp.csr_matrix(train.reshape(1, -1))
+        ids, _ = result.model.recommend(idx, user_items, N=k,
+                                        filter_already_liked_items=True)
+        hits += int(held in set(ids))
         total += 1
-    return {"recall_at_k": hits / total if total else 0.0, "k": k, "n_users": total}
+    return {"recall_at_k": hits / total if total else 0.0, "k": k,
+            "n_users": total, "n_sampled": len(users)}
 
