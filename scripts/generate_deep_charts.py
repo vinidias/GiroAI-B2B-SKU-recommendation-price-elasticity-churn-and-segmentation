@@ -155,38 +155,63 @@ def chart_03_elasticity_by_category():
 
 
 def chart_04_churn_by_segment():
-    """Churn rate and revenue at risk by segment."""
+    """Revenue decline and recency distribution - the honest churn picture.
+
+    The Atlas has zero real churners, so a "churn rate by segment" bar chart is
+    misleading (it shows 3 non-zero bars that are noise, not signal). This
+    chart instead shows the two facts that actually matter: every customer is
+    recently active (recency), and revenue is broadly stable across segments.
+    """
     t = load_and_validate_all()
     ch = build_churn_features(t["clientes"], t["pedidos"], t["itens_pedido"])
-    g = ch.groupby("segmento").agg(
-        clientes=("cliente_id","count"),
-        churners=("churn","sum"),
-        receita_risco=("receita_total", lambda s: s[ch.loc[s.index,"churn"]==1].sum()),
-    ).reset_index()
-    g["churn_pct"] = g["churners"]/g["clientes"]*100
-    g = g.sort_values("churn_pct", ascending=True)
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+    # 1. Recency distribution: nobody has stopped buying
     ax = axes[0]
-    bars = ax.barh(g["segmento"], g["churn_pct"], color=GREEN, alpha=0.85, edgecolor="white")
-    ax.set_xlabel("Churn rate (%)")
-    ax.set_title("Churn rate by segment")
-    for bar, v in zip(bars, g["churn_pct"]):
-        ax.text(v, bar.get_y()+bar.get_height()/2, f" {v:.1f}%", va="center", fontsize=10)
+    ax.hist(ch["recencia_dias"], bins=30, color=GREEN, alpha=0.85, edgecolor="white")
+    ax.axvline(ch["recencia_dias"].max(), color="red", ls="--", lw=1.5,
+               label=f"max = {ch.recencia_dias.max():.0f} days")
+    ax.set_xlabel("Days since last order")
+    ax.set_ylabel("Customers")
+    ax.set_title("Recency: every customer is active")
+    ax.legend(frameon=False)
 
+    # 2. Revenue change by segment: variation, not churn
     ax = axes[1]
-    bars = ax.barh(g["segmento"], g["receita_risco"]/1e6, color="#C62828", alpha=0.85, edgecolor="white")
-    ax.set_xlabel("Revenue at risk (R$ millions)")
-    ax.set_title("Revenue at risk from churn")
-    for bar, v in zip(bars, g["receita_risco"]/1e6):
-        ax.text(v, bar.get_y()+bar.get_height()/2, f" {v:.1f}M", va="center", fontsize=10)
+    seg_order = (ch.groupby("segmento")["variacao_receita_pct"]
+                   .median().sort_values().index.tolist())
+    sns.boxplot(data=ch, x="variacao_receita_pct", y="segmento", order=seg_order,
+                color=ACCENT, ax=ax, width=0.55, fliersize=2)
+    ax.axvline(-0.5, color="red", ls="--", lw=1.5, label="churn threshold (-50%)")
+    ax.axvline(0, color="black", lw=0.8)
+    ax.set_xlabel("Revenue change, last 6m vs prior 6m")
+    ax.set_ylabel("")
+    ax.set_title("Revenue variation by segment")
+    ax.legend(frameon=False, loc="lower left")
 
-    fig.suptitle("Churn: where the customers leave and how much they take",
+    # 3. The label is degenerate: say so explicitly
+    ax = axes[2]
+    counts = ch.groupby("segmento")["churn"].agg(["sum", "count"])
+    counts["pct"] = counts["sum"] / counts["count"] * 100
+    counts = counts.sort_values("pct")
+    bars = ax.barh(counts.index, counts["pct"], color=[GRAY if v == 0 else "#C62828"
+                                                       for v in counts["pct"]])
+    ax.set_xlabel("% of customers labelled churn")
+    ax.set_title(f"Label rate: {ch['churn'].sum()} of {len(ch)} ({ch['churn'].mean()*100:.1f}%)")
+    for bar, (idx, row) in zip(bars, counts.iterrows()):
+        ax.text(bar.get_width(), bar.get_y()+bar.get_height()/2,
+                f"  {int(row['sum'])}/{int(row['count'])}", va="center", fontsize=9)
+    ax.text(0.98, 0.02, "too few to train a classifier",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=10,
+            style="italic", color="#C62828")
+
+    fig.suptitle("Churn on the Atlas: there is nothing to predict",
                  fontweight="bold", fontsize=17)
     fig.tight_layout()
     fig.savefig(OUT / "04_churn_by_segment.png")
     plt.close(fig)
-    print("  04 churn by segment")
+    print("  04 churn (honest version)")
 
 
 def chart_05_recommender_coverage():

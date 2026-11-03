@@ -46,13 +46,42 @@
 
 **O que isso ensina:** elasticity is a *within-product* response. Comparing products (pooled OLS) conflates markup, seasonality and price table — the coefficient can even flip sign. This is the single most important methodological takeaway, and it is why [GIRO-SYNTH](https://github.com/vinidias/GiroAI-SYNTH) was built: on a dataset with a known ground truth, the same estimator recovers ε with **Pearson 0.995**.
 
-## 4. Churn is a small group taking a large share of revenue
+## 4. Churn: there is nothing to predict on this dataset
 
-![Churn by segment](docs/images/04_churn_by_segment.png)
+![Churn analysis](docs/images/04_churn_by_segment.png)
 
-**Leitura:** churn rate is 4.4% (21 of 480 customers), but those 21 accounts carry a disproportionate slice of revenue. The chart ranks segments by **revenue at risk**, not by churn count — the commercial priority is where the money is, not where the headcount is.
+**O que o gráfico mostrou de errado.** A primeira versão deste painel mostrava uma
+taxa de churn por segmento que só tinha três barras — ACOUGUEIRO, LANCHONETE e
+BAR_RESTAURANTE apareciam com 0%. Investigando, a causa é simples e definitiva:
+**o Atlas não contém churners**.
 
-**Sinal a seguir:** retention effort should be scored by `P(churn) × revenue`, not by `P(churn)` alone.
+- Recência máxima: **78 dias** (nenhum cliente parou de comprar)
+- Todos os 480 clientes compram nos 9 trimestres
+- Nenhum cliente tem receita zero nos últimos 6 meses
+
+O label que eu havia definido (queda de receita > 50%) captura **variação**, não
+churn. Ele marca 8 clientes (1,7%) — 4 em PADARIA, 2 em ATACADO_SERVICO, 2 em
+MERCEARIA. Os outros três segmentos têm zero porque a variação deles ficou abaixo
+do corte, não porque retêm melhor.
+
+**Por que manter o gráfico.** Ele agora mostra as três coisas que importam:
+
+1. **Recência** — todos abaixo de 78 dias. Não há saída.
+2. **Variação de receita por segmento** — a distribuição real, com o corte de
+   -50% marcado. Quase todos os clientes ficam acima.
+3. **Taxa do label** — 8 de 480, explicitamente anotado como insuficiente para
+   treinar um classificador.
+
+**O aprendizado que fica.** Um AUC de 0.537 neste dataset **não é falha do
+modelo**. É a resposta correta para uma pergunta que o dado não permite
+responder. A alternativa — forçar um label de recência e obter AUC 1.0 por
+vazamento — produziria um número bonito e falso. A regra que adotei: *quando o
+label tem menos de 5% de positivos, o classificador não é avaliável; o resultado
+deve ser reportado como limitação do dado, não como métrica de modelo.*
+
+Este é exatamente o problema que o [GIRO-SYNTH](https://github.com/vinidias/GiroAI-SYNTH)
+resolve: lá existe um hazard de churn real, com indicadores antecedentes
+correlacionados, e o AUC sobe para 0.743 (0.988 contra o ground truth).
 
 ## 5. Demand is concentrated — which caps what personalisation can do
 

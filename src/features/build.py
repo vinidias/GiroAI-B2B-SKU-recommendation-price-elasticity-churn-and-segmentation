@@ -79,7 +79,8 @@ def build_elasticity_features(pedidos, itens, produtos, clientes,
 
 def build_churn_features(clientes, pedidos, itens,
                          reference_date: pd.Timestamp | None = None,
-                         drop_threshold: float = 0.5) -> pd.DataFrame:
+                         drop_threshold: float = 0.5,
+                         min_rate: float = 0.05) -> pd.DataFrame:
     """Behavioural features + binary churn label defined by revenue decline.
 
     The Atlas has no churn label and, in fact, no churners: all 480 customers
@@ -129,7 +130,19 @@ def build_churn_features(clientes, pedidos, itens,
         (out["receita_6m_anterior"] > 0)
         & (out["receita_6m"] < drop_threshold * out["receita_6m_anterior"])
     ).astype(int)
+
+    rate = float(out["churn"].mean())
     out.attrs["churn_drop_threshold"] = drop_threshold
+    out.attrs["churn_rate"] = rate
+    if rate < min_rate:
+        import logging
+        logging.getLogger(__name__).warning(
+            "churn label is degenerate: only %d of %d customers (%.1f%%) meet "
+            "the >%.0f%% revenue-drop rule. The Atlas has no real churners, so "
+            "this target cannot support a classifier - interpret churn_auc on "
+            "this dataset as a negative result, not a model failure.",
+            int(out["churn"].sum()), len(out), rate * 100, drop_threshold * 100,
+        )
     return out
 
 
