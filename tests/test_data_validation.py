@@ -1,4 +1,3 @@
-import pandas as pd
 import pytest
 
 from src.data.synthetic import generate
@@ -12,7 +11,7 @@ def tables():
 
 def test_all_tables_generated(tables):
     for name in SCHEMAS:
-        assert name in tables, f"missing table {name}"
+        assert name in tables
 
 
 def test_schemas_validate(tables):

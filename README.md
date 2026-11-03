@@ -1,6 +1,6 @@
 # Giro AI
 
-> End-to-end data science platform for B2B food distribution: SKU recommendation, price elasticity, churn prediction and customer segmentation — built with CRISP-DM, MLflow, DVC-ready data versioning and A/B testing.
+> End-to-end data science platform for B2B food distribution: SKU recommendation, price elasticity, churn prediction and customer segmentation - built with CRISP-DM, MLflow and A/B testing.
 
 ## Business impact
 
@@ -18,68 +18,53 @@ python -m venv .venv
 .venv\Scripts\activate            # Windows
 pip install -e ".[dev]"
 
-# Generate fallback synthetic dataset (Atlas layout)
-python -m src.data.synthetic
-
-# Run full pipeline (trains all four models, logs to MLflow)
-python -m pipelines.train
-
-# Inspect results
+python -m src.data.synthetic       # fallback synthetic dataset (Atlas layout)
+python -m pipelines.train          # trains all four models + logs to MLflow
 mlflow ui --backend-store-uri ./mlruns
 ```
 
 ## Using the real Atacado Atlas dataset
 
-Drop the CSVs into `data/raw/` with these names:
+Drop these CSVs into `data/raw/`:
 
 ```
-data/raw/clientes.csv
-data/raw/produtos.csv
-data/raw/pedidos.csv
-data/raw/itens_pedido.csv
-data/raw/precos_produto.csv
-data/raw/vendedores.csv
+clientes.csv  produtos.csv  pedidos.csv
+itens_pedido.csv  precos_produto.csv  vendedores.csv
 ```
 
-The loader (`src/data/validate.py`) validates them against Pandera schemas
-and the pipeline runs unchanged. Remove the fallback files first or the
-synthetic generator will skip if CSVs already exist.
+The loader validates them against Pandera schemas and the pipeline runs unchanged.
 
 ## CRISP-DM
 
-1. **Business Understanding** — four commercial questions → four models.
-2. **Data Understanding** — `notebooks/02_data_understanding.ipynb`, Pandera schemas.
-3. **Data Preparation** — `src/features/build.py`.
-4. **Modeling** — `src/models/{elasticity,churn,segmentation,recommender}.py`.
-5. **Evaluation** — MLflow metrics + `src/experiments/ab_test.py`.
-6. **Deployment** — `pipelines/train.py`, MLflow registry, drift monitoring.
+1. Business Understanding - four commercial questions -> four models
+2. Data Understanding - Pandera schemas + EDA notebooks
+3. Data Preparation - `src/features/build.py`
+4. Modeling - `src/models/{elasticity,churn,segmentation,recommender}.py`
+5. Evaluation - MLflow metrics + `src/experiments/ab_test.py`
+6. Deployment - `pipelines/train.py` + drift monitoring
 
-## Project layout
+## Layout
 
 ```
 src/
   data/          synthetic generator, Pandera schemas, loader
   features/      elasticity, churn, segmentation, interaction builders
-  models/        elasticity (statsmodels), churn (LightGBM), segmentation (KMeans/DBSCAN), recommender (implicit ALS)
-  experiments/   A/B test simulation (Welch, two-proportion)
+  models/        statsmodels OLS, LightGBM, KMeans/DBSCAN, implicit ALS
+  experiments/   A/B test simulation
   monitoring/    Evidently drift report
-pipelines/       end-to-end training pipeline with MLflow
+pipelines/       end-to-end training with MLflow
 tests/           pytest for data, features, models, A/B
 ```
 
-## Metrics tracked (last run)
+## Metrics tracked
 
-See `data/processed/run_summary.json` and the MLflow UI. The pipeline logs:
-
-- `elasticity_r2` — fit quality of the log-log demand model
-- `churn_auc`, `churn_pr_auc`, `churn_brier` — calibrated churn classifier
-- `seg_k`, `seg_silhouette`, `seg_davies_bouldin` — KMeans quality
-- `recall_at_10` — recommender hit rate
-- `ab_p_value`, `ab_uplift_pct` — experiment significance
+- `elasticity_r2`, `churn_auc`, `churn_pr_auc`, `churn_brier`
+- `seg_k`, `seg_silhouette`, `seg_davies_bouldin`
+- `recall_at_10`, `ab_p_value`, `ab_uplift_pct`
 
 ## Next steps
 
-- Wire DVC (`dvc init`, `dvc add data/raw`) for dataset versioning
-- Add MLflow Model Registry stage transitions (`Staging` → `Production`)
-- Schedule `src/monitoring/drift.py` as a daily job
-- Expand notebooks 01–08 for the full CRISP-DM narrative
+- `dvc init && dvc add data/raw` for dataset versioning
+- MLflow Model Registry stage transitions
+- Schedule drift monitoring daily
+- Fill notebooks 01-08 for the full CRISP-DM narrative

@@ -1,29 +1,23 @@
 import numpy as np
 
-from src.experiments.ab_test import simulate_experiment, two_proportion_test, welch_ttest
 from src.data.synthetic import generate
+from src.experiments.ab_test import simulate_experiment, two_proportion_test, welch_ttest
 
 
 def test_two_proportion_significance():
-    r = two_proportion_test(control_success=100, control_n=1000,
-                            treatment_success=150, treatment_n=1000)
-    assert r.significant
-    assert r.uplift_pct > 0
+    r = two_proportion_test(100, 1000, 150, 1000)
+    assert r.significant and r.uplift_pct > 0
 
 
 def test_two_proportion_no_signal():
-    r = two_proportion_test(control_success=100, control_n=1000,
-                            treatment_success=101, treatment_n=1000)
+    r = two_proportion_test(100, 1000, 101, 1000)
     assert not r.significant
 
 
 def test_welch():
     rng = np.random.default_rng(0)
-    c = rng.normal(100, 10, 500)
-    t = rng.normal(110, 10, 500)
-    r = welch_ttest(c, t)
-    assert r.significant
-    assert r.treatment_mean > r.control_mean
+    r = welch_ttest(rng.normal(100, 10, 500), rng.normal(110, 10, 500))
+    assert r.significant and r.treatment_mean > r.control_mean
 
 
 def test_simulate_experiment():

@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from src.data.synthetic import generate
@@ -43,7 +42,6 @@ def test_segmentation(tables):
 def test_recommender(tables):
     inter = build_interactions(tables["pedidos"], tables["itens_pedido"])
     rec = train_recommender(inter, factors=16, iterations=5)
-    uid = int(rec.user_ids[0])
-    recs = recommend(rec, uid, n=5)
+    recs = recommend(rec, int(rec.user_ids[0]), n=5)
     assert len(recs) <= 5
     assert all(isinstance(i, int) for i, _ in recs)
