@@ -10,6 +10,11 @@ manifesto.csv document them):
   - a duplicate order pointing at a non-existent customer (C9999)
   - textual junk in numeric columns (e.g. "INVALIDO" in preco_unitario_brl)
   - 4 duplicated item_pedido_id rows
+  - box-conversion price inflation: CX SKUs listed at 100-450x cost, stored both
+    in produtos.preco_lista_brl and itens_pedido.preco_unitario_brl (25,555 of
+    147,042 items, 17%). Left in, DESCARTAVEIS alone reports R$162.8M of phantom
+    revenue. clean_prices() and clean_item_prices() normalise them to the
+    category's median markup.
 
 The loader therefore:
   1. reads every column as string (avoids pandas silently turning junk into NaN),
@@ -24,6 +29,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from pandera.pandas import Check, Column, DataFrameSchema
 
@@ -147,6 +153,9 @@ SCHEMAS: dict[str, DataFrameSchema] = {
 }
 
 
+MARKUP_SANITY_MAX = 50.0  # Atlas inflates some CX prices by 100-450x
+
+
 def _coerce(df: pd.DataFrame, name: str) -> pd.DataFrame:
     df = df.copy()
     for col in CATEGORICAL_COLS.get(name, []):
@@ -207,5 +216,66 @@ def validate(name: str, df: pd.DataFrame | None = None) -> pd.DataFrame:
     return schema.validate(df) if schema is not None else df
 
 
-def load_and_validate_all() -> dict[str, pd.DataFrame]:
-    return {name: validate(name) for name in RAW_FILES}
+def clean_item_prices(itens: pd.DataFrame, produtos: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Normalise inflated per-item prices using the category's median markup.
+
+    The Atlas stores the box-conversion artefact directly in preco_unitario_brl
+    for 25,555 of 147,042 items (17%). Left in, DESCARTAVEIS alone reports
+    R$162.8M of revenue that never existed. We recompute the item price as
+    custo_referencia * category_median_markup when the original markup exceeds
+    MARKUP_SANITY_MAX, preserving discounts.
+
+    Returns the cleaned frame and how many rows were fixed.
+    """
+    df = itens.merge(
+        produtos[["produto_id", "categoria", "custo_referencia_brl"]],
+        on="produto_id", how="left",
+    )
+    df["_markup"] = df["preco_unitario_brl"] / df["custo_referencia_brl"].replace(0, np.nan)
+    sane = df[df["_markup"] <= MARKUP_SANITY_MAX]
+    cat_markup = sane.groupby("categoria")["_markup"].median()
+    bad = df["_markup"] > MARKUP_SANITY_MAX
+    n_fixed = int(bad.sum())
+    if n_fixed:
+        new_price = (df.loc[bad, "custo_referencia_brl"]
+                     * df.loc[bad, "categoria"].map(cat_markup)).round(2)
+        df.loc[bad, "preco_unitario_brl"] = new_price
+        df.loc[bad, "valor_mercadoria_brl"] = (
+            df.loc[bad, "quantidade_expedida"] * new_price * (1 - df.loc[bad, "desconto_pct"])
+        ).round(2)
+        log.info("itens_pedido: %d items with inflated prices normalised", n_fixed)
+    return df.drop(columns=["_markup", "categoria", "custo_referencia_brl"]), n_fixed
+
+
+def clean_prices(produtos: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Flag Atlas SKUs whose list price is a box-conversion artefact.
+
+    The Atlas multiplies the unit price by the box factor twice for some CX
+    SKUs, producing markups of 100-450x (a R$7.24 box of disposable plates is
+    listed at R$3,292.50). Left in, these SKUs dominate every revenue chart.
+
+    Strategy: compute markup = preco_lista / custo. When markup exceeds
+    MARKUP_SANITY_MAX, recompute preco_lista as custo * median markup of the
+    same category's sane SKUs. Returns the cleaned frame and how many were fixed.
+    """
+    p = produtos.copy()
+    p["_markup"] = p["preco_lista_brl"] / p["custo_referencia_brl"].replace(0, np.nan)
+    sane = p[p["_markup"] <= MARKUP_SANITY_MAX]
+    cat_markup = sane.groupby("categoria")["_markup"].median()
+    bad = p["_markup"] > MARKUP_SANITY_MAX
+    n_fixed = int(bad.sum())
+    if n_fixed:
+        p.loc[bad, "preco_lista_brl"] = (
+            p.loc[bad, "custo_referencia_brl"] * p.loc[bad, "categoria"].map(cat_markup)
+        ).round(2)
+        log.info("produtos: %d SKUs with inflated box prices normalised", n_fixed)
+    return p.drop(columns=["_markup"]), n_fixed
+
+
+def load_and_validate_all(clean_price_anomalies: bool = True) -> dict[str, pd.DataFrame]:
+    tables = {name: validate(name) for name in RAW_FILES}
+    if clean_price_anomalies:
+        tables["produtos"], _ = clean_prices(tables["produtos"])
+        tables["itens_pedido"], _ = clean_item_prices(
+            tables["itens_pedido"], tables["produtos"])
+    return tables

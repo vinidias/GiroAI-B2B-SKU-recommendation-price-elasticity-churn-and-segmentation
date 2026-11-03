@@ -20,13 +20,15 @@
 
 ---
 
-## 1. Revenue concentration is extreme — and margin is not where revenue is
+## 1. Revenue concentration — after removing a phantom R$ 211M
 
 ![Revenue and margin by category](docs/images/01_category_margin.png)
 
-**Leitura:** DESCARTAVEIS alone is **R$ 162.7M** — 5x the second category. But its margin is **99.6%**, which is a data artefact: the Atlas assigns an unrealistically low `custo_referencia_brl` to this category. Excluding it, the real margin story is FRIOS (59.6%) vs MERCEARIA (92.1%).
+**O que estava errado:** a primeira versão deste gráfico mostrava DESCARTAVEIS com R$ 162,7M e 99,6% de margem. A investigação revelou o **7º tipo de anomalia do Atlas**: 25.555 itens (17% do total) tinham o preço de caixa convertido duas vezes — um prato descartável com custo de R$ 7,24/cx era vendido a R$ 3.292,50/cx (**455x de markup**). A receita total inflada era R$ 329M; a real é **R$ 117,9M**.
 
-**O que fazer com isso:** a política de preço não pode ser uniforme por categoria. Categorias de margem baixa (FRIOS, CONGELADOS) precisam de proteção; categorias de margem alta suportam desconto para ganhar volume.
+**Leitura (após limpeza):** SNACKS lidera com R$ 35,4M, seguida de BEBIDAS (R$ 19,1M) e MERCEARIA (R$ 18,2M). A margem mais baixa é **FRIOS (59,6%)** — a categoria que precisa de proteção de preço. As demais operam acima de 77%.
+
+**O que fazer com isso:** a política de preço não pode ser uniforme. FRIOS e CONGELADOS (77,8%) precisam de proteção de margem; SNACKS e BEBIDAS (93,8%) suportam desconto para ganhar volume.
 
 ## 2. Revenue per account reveals the segments worth defending
 
@@ -105,6 +107,7 @@ The Atlas intentionally ships controlled data-quality defects. `src/data/validat
 | Duplicate line items | 147,082 | 147,042 | same as above |
 | Capitalization drift (Faturado / FATURADO) | 4 rows | normalized | UPPER + strip on categorical cols |
 | Discount stored as percent (0-8) | all rows | /100 | normalized to fraction |
+| Box-conversion price inflation (CX SKUs at 100-450x cost) | 25,555 items (17%) | normalized | recompute from category median markup |
 
 Every step is covered by `tests/test_data_validation.py`.
 
