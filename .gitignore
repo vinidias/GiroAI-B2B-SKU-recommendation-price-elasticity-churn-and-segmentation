@@ -1,4 +1,4 @@
-﻿__pycache__/
+__pycache__/
 *.py[cod]
 *.log
 .venv/
@@ -8,14 +8,18 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Data: raw CSVs and archives are large; keep only manifest/checksums/docs
 data/raw/*.csv
+data/raw/*.zip
+data/raw/FRUTAL-ATLAS/
 data/interim/
 data/processed/
 !data/raw/.gitkeep
+
 mlruns/
 mlflow.db
 .env
 .DS_Store
 Thumbs.db
 .ipynb_checkpoints/
-
