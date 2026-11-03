@@ -1,7 +1,10 @@
-"""Deep visual analytics for the Giro AI README.
+"""Clean, publication-style charts for the Giro AI README.
 
-Each chart is a cross-tabulation that answers a commercial question, not just a
-metric plot. Output goes to docs/images/ and is embedded in the README.
+Design principles (borrowed from the Paradime / Isin Pesch school):
+  - one message per chart, stated in the title
+  - minimal chrome: no top/right spines, no heavy grid, no redundant labels
+  - consistent palette across all figures
+  - the insight is annotated on the chart, not left to the caption
 """
 from __future__ import annotations
 
@@ -11,326 +14,359 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import numpy as np
 import pandas as pd
 import seaborn as sns
 
 sys.path.insert(0, "D:/Dev/giro-ai")
 from src.data.validate import load_and_validate_all
+from src.experiments.ab_test import simulate_experiment
 from src.features.build import (build_churn_features, build_elasticity_features,
-                                build_interactions, build_segmentation_features)
+                                build_interactions)
 
 OUT = Path("D:/Dev/giro-ai/docs/images")
 OUT.mkdir(parents=True, exist_ok=True)
 
-sns.set_theme(style="whitegrid", context="talk", palette="deep")
+# ---- palette -------------------------------------------------------------
+INK = "#1a1a1a"
+MUTED = "#6b7280"
+GRID = "#e5e7eb"
+GREEN = "#16a34a"
+RED = "#dc2626"
+BLUE = "#2563eb"
+AMBER = "#d97706"
+CATS = ["#16a34a", "#2563eb", "#d97706", "#dc2626", "#7c3aed",
+        "#0891b2", "#65a30d", "#db2777", "#475569", "#0d9488",
+        "#b45309", "#4338ca"]
+
+# ---- global style --------------------------------------------------------
 plt.rcParams.update({
-    "figure.dpi": 120, "savefig.dpi": 200, "savefig.bbox": "tight",
-    "font.family": "DejaVu Sans", "axes.titleweight": "bold",
-    "axes.titlesize": 15, "axes.labelsize": 12,
+    "figure.dpi": 140,
+    "savefig.dpi": 200,
+    "savefig.bbox": "tight",
+    "savefig.facecolor": "white",
+    "figure.facecolor": "white",
+    "font.family": "DejaVu Sans",
+    "font.size": 11,
+    "axes.titlesize": 15,
+    "axes.titleweight": "bold",
+    "axes.titlecolor": INK,
+    "axes.titlepad": 14,
+    "axes.labelsize": 11,
+    "axes.labelcolor": MUTED,
+    "axes.edgecolor": GRID,
+    "axes.linewidth": 0.8,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "xtick.color": MUTED,
+    "ytick.color": MUTED,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "grid.color": GRID,
+    "grid.linewidth": 0.7,
+    "legend.frameon": False,
+    "legend.fontsize": 10,
 })
 
-GREEN = "#2E7D32"
-GRAY = "#9E9E9E"
-ACCENT = "#1565C0"
+
+def _finish(fig, path, subtitle=None):
+    """Add a one-line takeaway under the title and save."""
+    if subtitle:
+        fig.text(0.5, 0.965, subtitle, ha="center", va="top",
+                 fontsize=11, color=MUTED, style="italic")
+    fig.savefig(OUT / path)
+    plt.close(fig)
+    print(f"  {path}")
 
 
-def chart_01_category_margin():
-    """Which categories generate revenue vs which generate margin?"""
+# ---------------------------------------------------------------------------
+def chart_01_revenue_margin():
     t = load_and_validate_all()
-    itens = t["itens_pedido"].merge(t["pedidos"][["pedido_id","status_pedido"]], on="pedido_id")
-    itens = itens[itens["status_pedido"]=="FATURADO"]
-    itens = itens.merge(t["produtos"][["produto_id","categoria","custo_referencia_brl"]], on="produto_id")
-    itens["preco_liquido"] = itens["preco_unitario_brl"] * (1 - itens["desconto_pct"])
-    itens["receita"] = itens["quantidade_expedida"] * itens["preco_liquido"]
-    itens["custo"] = itens["quantidade_expedida"] * itens["custo_referencia_brl"]
-    itens["margem"] = itens["receita"] - itens["custo"]
+    it = t["itens_pedido"].merge(t["pedidos"][["pedido_id", "status_pedido"]], on="pedido_id")
+    it = it[it["status_pedido"] == "FATURADO"]
+    it = it.merge(t["produtos"][["produto_id", "categoria", "custo_referencia_brl"]],
+                  on="produto_id")
+    it["receita"] = it["quantidade_expedida"] * it["preco_unitario_brl"] * (1 - it["desconto_pct"])
+    it["margem"] = it["receita"] - it["quantidade_expedida"] * it["custo_referencia_brl"]
 
-    g = itens.groupby("categoria").agg(
-        receita=("receita","sum"), margem=("margem","sum"), pedidos=("pedido_id","nunique")
-    ).reset_index()
+    g = it.groupby("categoria").agg(receita=("receita", "sum"),
+                                    margem=("margem", "sum")).reset_index()
+    g["receita_M"] = g["receita"] / 1e6
     g["margem_pct"] = g["margem"] / g["receita"] * 100
-    g = g.sort_values("receita", ascending=True)
+    g = g.sort_values("receita_M")
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 7))
-    ax = axes[0]
-    colors = plt.cm.viridis(np.linspace(0.2, 0.9, len(g)))
-    ax.barh(g["categoria"], g["receita"]/1e6, color=colors)
+    fig, ax = plt.subplots(figsize=(11, 6.5))
+    y = np.arange(len(g))
+    bars = ax.barh(y, g["receita_M"], color=GREEN, alpha=0.85, height=0.62, zorder=3)
+    ax.set_yticks(y)
+    ax.set_yticklabels(g["categoria"], fontsize=10)
     ax.set_xlabel("Revenue (R$ millions)")
-    ax.set_title("Revenue by category")
-    for i, v in enumerate(g["receita"]/1e6):
-        ax.text(v, i, f" {v:.1f}M", va="center", fontsize=9)
+    ax.set_title("Where the money comes from")
+    ax.grid(axis="x", zorder=0)
+    ax.set_axisbelow(True)
 
-    ax = axes[1]
-    scatter = ax.scatter(g["receita"]/1e6, g["margem_pct"], s=g["pedidos"]/30,
-                         c=colors, alpha=0.8, edgecolor="white", linewidth=2)
-    for _, row in g.iterrows():
-        ax.annotate(row["categoria"], (row["receita"]/1e6, row["margem_pct"]),
-                    fontsize=9, ha="center", va="bottom")
-    ax.set_xlabel("Revenue (R$ millions)")
-    ax.set_ylabel("Margin %")
-    ax.set_title("Revenue vs margin (bubble = orders)")
-    ax.axhline(g["margem_pct"].mean(), color="gray", ls="--", alpha=0.5)
-    fig.suptitle("Where does the money come from - and where does the margin hide?",
-                 fontweight="bold", fontsize=17)
-    fig.tight_layout()
-    fig.savefig(OUT / "01_category_margin.png")
-    plt.close(fig)
-    print("  01 category margin")
+    for bar, (_, row) in zip(bars, g.iterrows()):
+        ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
+                f"R$ {row.receita_M:.1f}M  ·  {row.margem_pct:.0f}% margin",
+                va="center", fontsize=9, color=INK)
+
+    ax.set_xlim(0, g["receita_M"].max() * 1.35)
+    _finish(fig, "01_revenue_margin.png",
+            "SNACKS and BEBIDAS lead on volume; FRIOS is the margin laggard at 59.6%")
 
 
-def chart_02_segment_value():
-    """Which customer segments are worth most, and how concentrated?"""
+# ---------------------------------------------------------------------------
+def chart_02_segments():
     t = load_and_validate_all()
-    pedidos = t["pedidos"].merge(t["clientes"][["cliente_id","segmento","uf"]], on="cliente_id")
-    pedidos = pedidos[pedidos["status_pedido"]=="FATURADO"]
-
-    seg = pedidos.groupby("segmento").agg(
-        receita=("valor_mercadoria_total_brl","sum"),
-        clientes=("cliente_id","nunique"),
-        pedidos=("pedido_id","nunique"),
+    p = t["pedidos"].merge(t["clientes"][["cliente_id", "segmento"]], on="cliente_id")
+    p = p[p["status_pedido"] == "FATURADO"]
+    g = p.groupby("segmento").agg(
+        receita=("valor_mercadoria_total_brl", "sum"),
+        clientes=("cliente_id", "nunique"),
     ).reset_index()
-    seg["ticket"] = seg["receita"] / seg["pedidos"]
-    seg["receita_por_cliente"] = seg["receita"] / seg["clientes"]
-    seg = seg.sort_values("receita", ascending=False)
+    g["por_cliente"] = g["receita"] / g["clientes"] / 1e3
+    g = g.sort_values("por_cliente")
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-    ax = axes[0]
-    bars = ax.bar(seg["segmento"], seg["receita"]/1e6, color=GREEN, alpha=0.85, edgecolor="white")
-    ax.set_ylabel("Revenue (R$ millions)")
-    ax.set_title("Revenue by customer segment")
-    ax.tick_params(axis="x", rotation=30)
-    for bar, v in zip(bars, seg["receita"]/1e6):
-        ax.text(bar.get_x()+bar.get_width()/2, v, f"{v:.1f}M", ha="center", va="bottom", fontsize=10)
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    y = np.arange(len(g))
+    bars = ax.barh(y, g["por_cliente"], color=BLUE, alpha=0.85, height=0.6, zorder=3)
+    ax.set_yticks(y)
+    ax.set_yticklabels(g["segmento"], fontsize=10)
+    ax.set_xlabel("Revenue per account (R$ thousands)")
+    ax.set_title("Not all segments are worth the same effort")
+    ax.grid(axis="x", zorder=0)
+    ax.set_axisbelow(True)
 
-    ax = axes[1]
-    bars = ax.bar(seg["segmento"], seg["receita_por_cliente"]/1e3, color=ACCENT, alpha=0.85, edgecolor="white")
-    ax.set_ylabel("Revenue per customer (R$ thousands)")
-    ax.set_title("Revenue per customer (value density)")
-    ax.tick_params(axis="x", rotation=30)
-    for bar, v in zip(bars, seg["receita_por_cliente"]/1e3):
-        ax.text(bar.get_x()+bar.get_width()/2, v, f"{v:.0f}k", ha="center", va="bottom", fontsize=10)
+    for bar, (_, row) in zip(bars, g.iterrows()):
+        ax.text(bar.get_width() + 15, bar.get_y() + bar.get_height() / 2,
+                f"R$ {row.por_cliente:,.0f}k  ·  {int(row.clientes)} accounts",
+                va="center", fontsize=9, color=INK)
 
-    fig.suptitle("Segment revenue: volume vs value per account", fontweight="bold", fontsize=17)
-    fig.tight_layout()
-    fig.savefig(OUT / "02_segment_value.png")
-    plt.close(fig)
-    print("  02 segment value")
+    ax.set_xlim(0, g["por_cliente"].max() * 1.32)
+    _finish(fig, "02_segments.png",
+            "A MERCEARIA account is worth 2.4x an ACOUGUEIRO account")
 
 
-def chart_03_elasticity_by_category():
-    """Estimated elasticity vs true price range: which categories are price-sensitive?"""
+# ---------------------------------------------------------------------------
+def chart_03_elasticity():
     t = load_and_validate_all()
-    el = build_elasticity_features(t["pedidos"], t["itens_pedido"], t["produtos"], t["clientes"], with_macro=False)
+    el = build_elasticity_features(t["pedidos"], t["itens_pedido"],
+                                   t["produtos"], t["clientes"], with_macro=False)
     import statsmodels.formula.api as smf
-
     el = el.sample(min(200_000, len(el)), random_state=42)
-    el["lp_c"] = el["log_preco"] - el.groupby(["produto_id","mes"])["log_preco"].transform("mean")
-    el["lq_c"] = el["log_qty"] - el.groupby(["produto_id","mes"])["log_qty"].transform("mean")
+    el["lp_c"] = el["log_preco"] - el.groupby(["produto_id", "mes"])["log_preco"].transform("mean")
+    el["lq_c"] = el["log_qty"] - el.groupby(["produto_id", "mes"])["log_qty"].transform("mean")
 
     rows = []
     for cat in sorted(el["categoria"].unique()):
-        sub = el[el["categoria"]==cat]
+        sub = el[el["categoria"] == cat]
         m = smf.ols("lq_c ~ lp_c - 1", data=sub).fit()
-        rows.append({"categoria": cat, "elasticidade": -m.params["lp_c"],
-                     "n": len(sub), "r2": m.rsquared})
-    df = pd.DataFrame(rows).sort_values("elasticidade")
+        rows.append({"categoria": cat, "eps": -m.params["lp_c"],
+                     "p": m.pvalues["lp_c"], "n": len(sub)})
+    df = pd.DataFrame(rows).sort_values("eps")
 
-    fig, ax = plt.subplots(figsize=(12, 7))
-    colors = [ACCENT if e < -1 else GRAY for e in df["elasticidade"]]
-    bars = ax.barh(df["categoria"], df["elasticidade"], color=colors, alpha=0.85, edgecolor="white")
-    ax.axvline(-1, color="red", ls="--", lw=1.5, label="Unit elastic (|ε|=1)")
-    ax.axvline(0, color="black", lw=0.8)
-    ax.set_xlabel("Estimated elasticity (negative = demand falls when price rises)")
-    ax.set_title("Price elasticity by category (within SKU x month)")
-    for bar, v, n in zip(bars, df["elasticidade"], df["n"]):
-        ax.text(v, bar.get_y()+bar.get_height()/2, f" {v:.2f} (n={n:,})",
-                va="center", fontsize=9, ha="left" if v<0 else "right")
-    ax.legend(frameon=False, loc="lower left")
-    ax.invert_yaxis()
-    fig.tight_layout()
-    fig.savefig(OUT / "03_elasticity_by_category.png")
-    plt.close(fig)
-    print("  03 elasticity by category")
+    fig, ax = plt.subplots(figsize=(11, 6))
+    y = np.arange(len(df))
+    colors = [GREEN if p < 0.05 else GRID for p in df["p"]]
+    ax.barh(y, df["eps"], color=colors, height=0.62, zorder=3)
+    ax.axvline(0, color=INK, lw=1.2, zorder=4)
+    ax.set_yticks(y)
+    ax.set_yticklabels(df["categoria"], fontsize=10)
+    ax.set_xlabel("Estimated elasticity  (negative = demand falls when price rises)")
+    ax.set_title("Price response is weak in almost every category")
+    ax.grid(axis="x", zorder=0)
+    ax.set_axisbelow(True)
+
+    for i, (_, row) in enumerate(df.iterrows()):
+        label = f"{row.eps:+.3f}" + ("" if row.p < 0.05 else "  (n.s.)")
+        ax.text(row.eps - 0.004, i, label, va="center", ha="right",
+                fontsize=9, color=INK if row.p < 0.05 else MUTED)
+
+    ax.set_xlim(df["eps"].min() * 1.4, 0.01)
+    _finish(fig, "03_elasticity.png",
+            "Green = significant at 5%. Only HORTIFRUTI and CONGELADOS show any response")
 
 
-def chart_04_churn_by_segment():
-    """Revenue decline and recency distribution - the honest churn picture.
-
-    The Atlas has zero real churners, so a "churn rate by segment" bar chart is
-    misleading (it shows 3 non-zero bars that are noise, not signal). This
-    chart instead shows the two facts that actually matter: every customer is
-    recently active (recency), and revenue is broadly stable across segments.
-    """
+# ---------------------------------------------------------------------------
+def chart_04_churn():
     t = load_and_validate_all()
     ch = build_churn_features(t["clientes"], t["pedidos"], t["itens_pedido"])
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5), gridspec_kw={"width_ratios": [1, 1]})
 
-    # 1. Recency distribution: nobody has stopped buying
     ax = axes[0]
-    ax.hist(ch["recencia_dias"], bins=30, color=GREEN, alpha=0.85, edgecolor="white")
-    ax.axvline(ch["recencia_dias"].max(), color="red", ls="--", lw=1.5,
-               label=f"max = {ch.recencia_dias.max():.0f} days")
+    ax.hist(ch["recencia_dias"], bins=32, color=GREEN, alpha=0.8, zorder=3)
+    ax.axvline(ch["recencia_dias"].max(), color=RED, ls="--", lw=1.6, zorder=4)
+    ax.text(ch["recencia_dias"].max() - 3, ax.get_ylim()[1] * 0.85,
+            f"max = {ch.recencia_dias.max():.0f} days",
+            ha="right", fontsize=10, color=RED, fontweight="bold")
     ax.set_xlabel("Days since last order")
     ax.set_ylabel("Customers")
-    ax.set_title("Recency: every customer is active")
-    ax.legend(frameon=False)
+    ax.set_title("Everybody is still buying")
+    ax.grid(axis="y", zorder=0)
+    ax.set_axisbelow(True)
 
-    # 2. Revenue change by segment: variation, not churn
     ax = axes[1]
-    seg_order = (ch.groupby("segmento")["variacao_receita_pct"]
-                   .median().sort_values().index.tolist())
-    sns.boxplot(data=ch, x="variacao_receita_pct", y="segmento", order=seg_order,
-                color=ACCENT, ax=ax, width=0.55, fliersize=2)
-    ax.axvline(-0.5, color="red", ls="--", lw=1.5, label="churn threshold (-50%)")
-    ax.axvline(0, color="black", lw=0.8)
-    ax.set_xlabel("Revenue change, last 6m vs prior 6m")
+    order = (ch.groupby("segmento")["variacao_receita_pct"].median()
+               .sort_values().index.tolist())
+    sns.boxplot(data=ch, x="variacao_receita_pct", y="segmento", order=order,
+                color=BLUE, ax=ax, width=0.55, fliersize=2, linewidth=1)
+    ax.axvline(-0.5, color=RED, ls="--", lw=1.6)
+    ax.text(-0.48, len(order) - 0.6, "churn cut-off (-50%)",
+            fontsize=9, color=RED, ha="left")
+    ax.axvline(0, color=INK, lw=1)
+    ax.set_xlabel("Revenue change, last 6 months vs prior 6")
     ax.set_ylabel("")
-    ax.set_title("Revenue variation by segment")
-    ax.legend(frameon=False, loc="lower left")
+    ax.set_title("Variation, not churn")
+    ax.xaxis.set_major_formatter(mtick.PercentFormatter(1.0))
+    ax.grid(axis="x", zorder=0)
+    ax.set_axisbelow(True)
 
-    # 3. The label is degenerate: say so explicitly
-    ax = axes[2]
-    counts = ch.groupby("segmento")["churn"].agg(["sum", "count"])
-    counts["pct"] = counts["sum"] / counts["count"] * 100
-    counts = counts.sort_values("pct")
-    bars = ax.barh(counts.index, counts["pct"], color=[GRAY if v == 0 else "#C62828"
-                                                       for v in counts["pct"]])
-    ax.set_xlabel("% of customers labelled churn")
-    ax.set_title(f"Label rate: {ch['churn'].sum()} of {len(ch)} ({ch['churn'].mean()*100:.1f}%)")
-    for bar, (idx, row) in zip(bars, counts.iterrows()):
-        ax.text(bar.get_width(), bar.get_y()+bar.get_height()/2,
-                f"  {int(row['sum'])}/{int(row['count'])}", va="center", fontsize=9)
-    ax.text(0.98, 0.02, "too few to train a classifier",
-            transform=ax.transAxes, ha="right", va="bottom", fontsize=10,
-            style="italic", color="#C62828")
-
-    fig.suptitle("Churn on the Atlas: there is nothing to predict",
-                 fontweight="bold", fontsize=17)
-    fig.tight_layout()
-    fig.savefig(OUT / "04_churn_by_segment.png")
-    plt.close(fig)
-    print("  04 churn (honest version)")
+    fig.suptitle("The Atlas has no churners - so churn AUC 0.537 is the correct answer",
+                 fontsize=14, fontweight="bold", color=INK, y=1.02)
+    _finish(fig, "04_churn.png")
 
 
-def chart_05_recommender_coverage():
-    """What does the recommender actually cover? Popularity vs personalisation."""
+# ---------------------------------------------------------------------------
+def chart_05_popularity():
     t = load_and_validate_all()
     inter = build_interactions(t["pedidos"], t["itens_pedido"])
     pop = inter.groupby("produto_id")["n"].sum().sort_values(ascending=False)
     cum = pop.cumsum() / pop.sum() * 100
-
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-    ax = axes[0]
-    ax.plot(range(1, len(cum)+1), cum.values, color=GREEN, lw=2.5)
-    ax.axhline(80, color="gray", ls="--", alpha=0.6)
     n80 = int((cum < 80).sum()) + 1
-    ax.axvline(n80, color="red", ls="--", alpha=0.6)
-    ax.set_xlabel("SKUs ranked by volume")
-    ax.set_ylabel("Cumulative % of units sold")
-    ax.set_title(f"Popularity concentration: {n80} SKUs = 80% of volume")
 
-    ax = axes[1]
-    per_user = inter.groupby("cliente_id")["produto_id"].count()
-    ax.hist(per_user, bins=30, color=ACCENT, alpha=0.85, edgecolor="white")
-    ax.axvline(per_user.mean(), color="red", ls="--", lw=2,
-               label=f"mean = {per_user.mean():.1f}")
-    ax.set_xlabel("Distinct SKUs per customer")
-    ax.set_ylabel("Number of customers")
-    ax.set_title("SKU variety per customer")
-    ax.legend(frameon=False)
-
-    fig.suptitle("Recommender challenge: few SKUs drive volume, few customers buy many",
-                 fontweight="bold", fontsize=17)
-    fig.tight_layout()
-    fig.savefig(OUT / "05_recommender_coverage.png")
-    plt.close(fig)
-    print("  05 recommender coverage")
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    ax.plot(range(1, len(cum) + 1), cum.values, color=GREEN, lw=2.6, zorder=3)
+    ax.fill_between(range(1, len(cum) + 1), cum.values, color=GREEN, alpha=0.12, zorder=2)
+    ax.axhline(80, color=MUTED, ls=":", lw=1.4)
+    ax.axvline(n80, color=RED, ls="--", lw=1.4)
+    ax.scatter([n80], [80], color=RED, s=70, zorder=5)
+    ax.annotate(f"{n80} SKUs  =  80% of volume",
+                xy=(n80, 80), xytext=(n80 + len(cum) * 0.08, 55),
+                fontsize=11, color=RED, fontweight="bold",
+                arrowprops=dict(arrowstyle="->", color=RED, lw=1.3))
+    ax.set_xlabel("SKUs ranked by units sold")
+    ax.set_ylabel("Cumulative % of units")
+    ax.set_title("Demand is concentrated - a popularity baseline is hard to beat")
+    ax.set_ylim(0, 102)
+    ax.yaxis.set_major_formatter(mtick.PercentFormatter())
+    ax.grid(axis="y", zorder=0)
+    ax.set_axisbelow(True)
+    _finish(fig, "05_popularity.png")
 
 
-def chart_06_ab_impact():
-    """A/B test: uplift distribution and significance."""
+# ---------------------------------------------------------------------------
+def chart_06_ab():
     t = load_and_validate_all()
-    from src.experiments.ab_test import simulate_experiment
-
     out = simulate_experiment(t["pedidos"], t["itens_pedido"], uplift=0.10)
-    control = out["control"]
-    treatment = out["treatment"]
+    c, tr = out["control"], out["treatment"]
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    rng = np.random.default_rng(42)
+    diffs = [(rng.choice(tr, len(tr), True).mean() - rng.choice(c, len(c), True).mean())
+             / rng.choice(c, len(c), True).mean() * 100 for _ in range(600)]
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+
     ax = axes[0]
-    ax.hist(control, bins=50, alpha=0.6, label="Control", color=GRAY, density=True)
-    ax.hist(treatment, bins=50, alpha=0.6, label="Treatment", color=GREEN, density=True)
-    ax.axvline(control.mean(), color=GRAY, ls="--", lw=2)
-    ax.axvline(treatment.mean(), color=GREEN, ls="--", lw=2)
+    ax.hist(c, bins=45, alpha=0.55, color=MUTED, density=True, label="Control", zorder=3)
+    ax.hist(tr, bins=45, alpha=0.55, color=GREEN, density=True, label="Treatment", zorder=3)
+    ax.axvline(c.mean(), color=MUTED, ls="--", lw=1.8)
+    ax.axvline(tr.mean(), color=GREEN, ls="--", lw=1.8)
     ax.set_xlabel("Revenue per order (R$)")
     ax.set_ylabel("Density")
-    ax.set_title("Revenue distribution: control vs treatment")
-    ax.legend(frameon=False)
+    ax.set_title("The distributions do not overlap")
+    ax.legend(loc="upper right")
+    ax.grid(axis="y", zorder=0)
+    ax.set_axisbelow(True)
 
     ax = axes[1]
-    # bootstrap CI of the uplift
-    rng = np.random.default_rng(42)
-    diffs = []
-    for _ in range(500):
-        c = rng.choice(control, size=len(control), replace=True)
-        t = rng.choice(treatment, size=len(treatment), replace=True)
-        diffs.append((t.mean() - c.mean()) / c.mean() * 100)
-    ax.hist(diffs, bins=40, color=ACCENT, alpha=0.85, edgecolor="white")
-    ax.axvline(0, color="red", ls="--", lw=2, label="No effect")
-    ax.axvline(np.mean(diffs), color="black", lw=2, label=f"Uplift = {np.mean(diffs):.1f}%")
+    ax.hist(diffs, bins=40, color=BLUE, alpha=0.8, zorder=3)
+    ax.axvline(0, color=RED, ls="--", lw=1.6, label="No effect")
+    ax.axvline(np.mean(diffs), color=INK, lw=2, label=f"Mean = {np.mean(diffs):.1f}%")
     ax.set_xlabel("Uplift (%)")
     ax.set_ylabel("Bootstrap draws")
-    ax.set_title("Bootstrap distribution of uplift")
-    ax.legend(frameon=False)
+    ax.set_title("Bootstrap says the effect is real")
+    ax.legend(loc="upper left")
+    ax.grid(axis="y", zorder=0)
+    ax.set_axisbelow(True)
 
-    fig.suptitle("A/B test: the treatment effect is large and unambiguous",
-                 fontweight="bold", fontsize=17)
-    fig.tight_layout()
-    fig.savefig(OUT / "06_ab_impact.png")
-    plt.close(fig)
-    print("  06 ab impact")
+    fig.suptitle("A/B test harness: a 10% uplift is detected cleanly",
+                 fontsize=14, fontweight="bold", color=INK, y=1.02)
+    _finish(fig, "06_ab_test.png")
 
 
-def chart_07_cepea_coupling():
-    """CEPEA index vs realised price: the causal chain made visible."""
-    t = load_and_validate_all()
+# ---------------------------------------------------------------------------
+def chart_07_cepea():
     from src.data.macro import fetch_cepea_daily, monthly_macro
-
-    cepea = fetch_cepea_daily()
-    macro = monthly_macro(cepea)
-    macro = macro[macro["commodity"].isin(["cafe","milho","boi_gordo","soja"])]
+    macro = monthly_macro(fetch_cepea_daily())
+    keep = {"cafe": "Coffee", "milho": "Corn", "boi_gordo": "Cattle", "soja": "Soy"}
+    macro = macro[macro["commodity"].isin(keep)].copy()
     macro["ano_mes"] = pd.to_datetime(macro["ano_mes"] + "-01")
+    macro["idx"] = macro.groupby("commodity")["preco_commodity"].transform(
+        lambda s: s / s.iloc[0] * 100)
 
-    # index each commodity to its first month
-    macro["idx"] = macro.groupby("commodity")["preco_commodity"].transform(lambda s: s/s.iloc[0]*100)
+    fig, ax = plt.subplots(figsize=(12, 5.8))
+    colors = {"cafe": "#92400e", "milho": AMBER, "boi_gordo": RED, "soja": GREEN}
+    for c, label in keep.items():
+        sub = macro[macro["commodity"] == c].sort_values("ano_mes")
+        ax.plot(sub["ano_mes"], sub["idx"], lw=2.4, label=label,
+                color=colors[c], zorder=3)
+        last = sub.iloc[-1]
+        ax.annotate(f"{last.idx:.0f}", xy=(last.ano_mes, last.idx),
+                    xytext=(6, 0), textcoords="offset points",
+                    fontsize=10, color=colors[c], fontweight="bold", va="center")
 
-    fig, ax = plt.subplots(figsize=(14, 6))
-    palette = {"cafe": "#6D4C41", "milho": "#F9A825", "boi_gordo": "#C62828", "soja": "#2E7D32"}
-    labels = {"cafe": "Coffee", "milho": "Corn", "boi_gordo": "Cattle", "soja": "Soy"}
-    for c in ["cafe","milho","boi_gordo","soja"]:
-        sub = macro[macro["commodity"]==c].sort_values("ano_mes")
-        ax.plot(sub["ano_mes"], sub["idx"], lw=2.5, label=labels[c], color=palette[c])
-
-    ax.axhline(100, color="gray", ls="--", alpha=0.5)
+    ax.axhline(100, color=MUTED, ls=":", lw=1.3)
     ax.set_ylabel("Index (first month = 100)")
-    ax.set_xlabel("Month")
-    ax.set_title("Real CEPEA commodity indices that drive SKU cost and price")
-    ax.legend(frameon=False, ncol=4, loc="upper center")
-    fig.tight_layout()
-    fig.savefig(OUT / "07_cepea_coupling.png")
-    plt.close(fig)
-    print("  07 cepea coupling")
+    ax.set_xlabel("")
+    ax.set_title("Real CEPEA indices that feed SKU cost and therefore price")
+    ax.legend(loc="upper left", ncol=4)
+    ax.grid(axis="y", zorder=0)
+    ax.set_axisbelow(True)
+    _finish(fig, "07_cepea.png")
+
+
+# ---------------------------------------------------------------------------
+def chart_08_benchmark():
+    metrics = ["Elasticity\n(R²)", "Churn\n(AUC)", "Recommendation\n(recall@10)",
+               "Segmentation\n(silhouette)"]
+    atlas = [0.004, 0.537, 0.208, 0.413]
+    synth = [0.700, 0.675, 0.244, 0.559]
+
+    fig, ax = plt.subplots(figsize=(11, 5.8))
+    x = np.arange(len(metrics))
+    w = 0.36
+    b1 = ax.bar(x - w/2, atlas, w, label="Atacado Atlas", color="#cbd5e1", zorder=3)
+    b2 = ax.bar(x + w/2, synth, w, label="GIRO-SYNTH", color=GREEN, zorder=3)
+    ax.set_xticks(x)
+    ax.set_xticklabels(metrics, fontsize=10)
+    ax.set_ylabel("Score")
+    ax.set_title("Same pipeline, two datasets")
+    ax.legend(loc="upper left")
+    ax.set_ylim(0, 0.82)
+    ax.grid(axis="y", zorder=0)
+    ax.set_axisbelow(True)
+
+    for bars, color in ((b1, MUTED), (b2, INK)):
+        for bar in bars:
+            h = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2, h + 0.012,
+                    f"{h:.3f}", ha="center", fontsize=9.5,
+                    color=color, fontweight="bold")
+
+    _finish(fig, "08_benchmark.png",
+            "A known ground truth turns an unlearnable signal into a measurable one")
 
 
 if __name__ == "__main__":
-    print("Generating deep analytics charts...")
-    chart_01_category_margin()
-    chart_02_segment_value()
-    chart_03_elasticity_by_category()
-    chart_04_churn_by_segment()
-    chart_05_recommender_coverage()
-    chart_06_ab_impact()
-    chart_07_cepea_coupling()
+    print("Generating clean charts...")
+    chart_01_revenue_margin()
+    chart_02_segments()
+    chart_03_elasticity()
+    chart_04_churn()
+    chart_05_popularity()
+    chart_06_ab()
+    chart_07_cepea()
+    chart_08_benchmark()
     print(f"\nDone -> {OUT}")

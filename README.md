@@ -1,134 +1,156 @@
-# Giro AI
+# 🏭 Giro AI
 
-> End-to-end data science platform for B2B food distribution: SKU recommendation, price elasticity, churn prediction and customer segmentation — built with CRISP-DM, MLflow and A/B testing.
+> **A data-science pipeline that found R$ 211M of phantom revenue — and three bugs in its own models.**
 
-**Dataset:** [Atacado Atlas](https://www.kaggle.com/datasets/vongrossi/atacado-atlas-synthetic-wholesale-distribution) — 22 CSVs, 730 days, 144 SKUs, 480 wholesale customers, 52k orders, 147k line items.
+End-to-end platform for B2B food distribution: SKU recommendation, price elasticity,
+churn and customer segmentation. Built with CRISP-DM, MLflow and A/B testing on the
+[Atacado Atlas](https://www.kaggle.com/datasets/vongrossi/atacado-atlas-synthetic-wholesale-distribution)
+(22 CSVs · 730 days · 144 SKUs · 480 customers · 52k orders).
 
-![Dashboard](docs/images/01_category_margin.png)
+---
 
-## What this answers
+## 🎯 What this project answers
 
-| Commercial question | Model | What the chart shows |
+| Commercial question | Finding | Model |
 |---|---|---|
-| Where does revenue come from, and where does margin hide? | Descriptive + elasticity | `01_category_margin.png` |
-| Which segments are worth most per account? | Segmentation | `02_segment_value.png` |
-| Which categories are price-sensitive? | Within-SKU OLS | `03_elasticity_by_category.png` |
-| Who is leaving, and how much revenue walks out? | LightGBM + RFM | `04_churn_by_segment.png` |
-| How concentrated is demand? Can personalisation beat popularity? | ALS | `05_recommender_coverage.png` |
-| Does the treatment actually lift revenue? | Welch + bootstrap | `06_ab_impact.png` |
-| Are prices anchored to real commodity indices? | CEPEA causal chain | `07_cepea_coupling.png` |
+| Where does the money come from? | SNACKS R$ 35.4M · FRIOS is the margin laggard at 59.6% | Descriptive |
+| Which accounts are worth the effort? | A MERCEARIA account is worth **2.4×** an ACOUGUEIRO | Segmentation |
+| Does demand respond to price? | Barely — and the dataset cannot show it | Within-SKU OLS |
+| Who is leaving? | **Nobody.** The Atlas has no churners | RFM + LightGBM |
+| Can personalisation beat popularity? | Marginally: recall@10 0.208 | ALS |
+| Does the A/B harness work? | Yes — a 10% uplift is detected cleanly | Welch + bootstrap |
+| Are prices anchored to reality? | Yes — real CEPEA commodity indices | Causal chain |
 
 ---
 
-## 1. Revenue concentration — after removing a phantom R$ 211M
+## 🔍 The five findings that matter
 
-![Revenue and margin by category](docs/images/01_category_margin.png)
+### 1. R$ 211M of revenue that never existed
 
-**O que estava errado:** a primeira versão deste gráfico mostrava DESCARTAVEIS com R$ 162,7M e 99,6% de margem. A investigação revelou o **7º tipo de anomalia do Atlas**: 25.555 itens (17% do total) tinham o preço de caixa convertido duas vezes — um prato descartável com custo de R$ 7,24/cx era vendido a R$ 3.292,50/cx (**455x de markup**). A receita total inflada era R$ 329M; a real é **R$ 117,9M**.
+![Revenue by category](docs/images/01_revenue_margin.png)
 
-**Leitura (após limpeza):** SNACKS lidera com R$ 35,4M, seguida de BEBIDAS (R$ 19,1M) e MERCEARIA (R$ 18,2M). A margem mais baixa é **FRIOS (59,6%)** — a categoria que precisa de proteção de preço. As demais operam acima de 77%.
+**What happened.** The first version of this chart put DESCARTAVEIS at R$ 162.7M with a
+99.6% margin. That was implausible, so I checked: **25,556 line items (17%)** had the
+box price converted twice — a R$ 7.24 box of disposable plates was sold at
+R$ 3,292.50 (**455× markup**). Total revenue was inflated from R$ 117.9M to R$ 329M.
 
-**O que fazer com isso:** a política de preço não pode ser uniforme. FRIOS e CONGELADOS (77,8%) precisam de proteção de margem; SNACKS e BEBIDAS (93,8%) suportam desconto para ganhar volume.
+**How I found it.** By eyeballing a chart that started with an implausible category.
 
-## 2. Revenue per account reveals the segments worth defending
+**What I did about it.** Added `clean_prices` and `clean_items` to the loader, plus a
+regression test that fails if any markup exceeds 50×. The full audit found
+**14 controlled anomalies** — see [Data quality](#-data-quality) below.
 
-![Revenue per segment](docs/images/02_segment_value.png)
+### 2. Revenue per account is the sharper metric
 
-**Leitura:** MERCEARIA dominates by volume (R$ 158M, 150 customers), but **revenue per customer** is the sharper metric: MERCEARIA (R$ 1.05M) vs LANCHONETE (R$ 621k) vs ACOUGUEIRO (R$ 435k). ACOUGUEIRO has the smallest accounts and should not get the same commercial effort.
+![Revenue per segment](docs/images/02_segments.png)
 
-**Sinal a seguir:** CRM and territory design should weight **revenue per account**, not total segment revenue. Losing one MERCEARIA customer costs 2.4x losing one ACOUGUEIRO customer.
+**What it shows.** MERCEARIA dominates on total revenue (R$ 158M from 150 accounts), but
+the number that should drive commercial effort is **revenue per account**: MERCEARIA
+R$ 1.05M vs ACOUGUEIRO R$ 435k.
 
-## 3. Elasticity: only a handful of categories move with price
+**What to do with it.** Weight territory design and CRM effort by account value, not by
+segment headcount. Losing one MERCEARIA customer costs 2.4× losing one ACOUGUEIRO.
 
-![Elasticity by category](docs/images/03_elasticity_by_category.png)
+### 3. Price elasticity: the dataset cannot support the question
 
-**Leitura:** the within-SKU × month estimator recovers near-zero elasticity for most categories — which is the honest result on this dataset, because the Atlas generates quantity independently of price. Only HORTIFRUTI (-0.036) and CONGELADOS (-0.011) show a hint of response.
+![Elasticity by category](docs/images/03_elasticity.png)
 
-**O que isso ensina:** elasticity is a *within-product* response. Comparing products (pooled OLS) conflates markup, seasonality and price table — the coefficient can even flip sign. This is the single most important methodological takeaway, and it is why [GIRO-SYNTH](https://github.com/vinidias/GiroAI-SYNTH) was built: on a dataset with a known ground truth, the same estimator recovers ε with **Pearson 0.995**.
+**What it shows.** Using a within-SKU × month estimator (the only specification that
+isolates demand response from price-table assignment and monthly list changes), almost
+every category comes out flat. Only HORTIFRUTI and CONGELADOS show any response, and
+both are small.
 
-## 4. Churn: there is nothing to predict on this dataset
+**Why.** The Atlas assigns prices through 5 tables but **generates quantity
+independently of price**. There is no demand response to recover.
 
-![Churn analysis](docs/images/04_churn_by_segment.png)
+**The lesson that shaped this project.** Elasticity is a *within-product* response.
+Pooling products conflates markup, seasonality and price table — the coefficient can
+even flip sign. On a dataset with a known ground truth the same estimator recovers ε
+with **Pearson 0.995**. That is why [GIRO-SYNTH](https://github.com/vinidias/GiroAI-SYNTH)
+exists.
 
-**O que o gráfico mostrou de errado.** A primeira versão deste painel mostrava uma
-taxa de churn por segmento que só tinha três barras — ACOUGUEIRO, LANCHONETE e
-BAR_RESTAURANTE apareciam com 0%. Investigando, a causa é simples e definitiva:
-**o Atlas não contém churners**.
+### 4. Churn: there is nothing to predict
 
-- Recência máxima: **78 dias** (nenhum cliente parou de comprar)
-- Todos os 480 clientes compram nos 9 trimestres
-- Nenhum cliente tem receita zero nos últimos 6 meses
+![Churn analysis](docs/images/04_churn.png)
 
-O label que eu havia definido (queda de receita > 50%) captura **variação**, não
-churn. Ele marca 8 clientes (1,7%) — 4 em PADARIA, 2 em ATACADO_SERVICO, 2 em
-MERCEARIA. Os outros três segmentos têm zero porque a variação deles ficou abaixo
-do corte, não porque retêm melhor.
+**What the chart showed was wrong.** The first version had churn rates by segment with
+three bars at 0%. Investigating: **the Atlas contains no churners.** Maximum recency is
+**78 days**, every customer buys in all 9 quarters, and nobody has zero revenue in the
+trailing 6 months.
 
-**Por que manter o gráfico.** Ele agora mostra as três coisas que importam:
+**What the label actually measures.** A revenue-drop rule marks 8 of 480 customers
+(1.7%) — variation, not churn. The other three segments have zero because their
+variation fell below the cut-off, not because they retain better.
 
-1. **Recência** — todos abaixo de 78 dias. Não há saída.
-2. **Variação de receita por segmento** — a distribuição real, com o corte de
-   -50% marcado. Quase todos os clientes ficam acima.
-3. **Taxa do label** — 8 de 480, explicitamente anotado como insuficiente para
-   treinar um classificador.
+**The lesson.** An AUC of 0.537 on this dataset **is not a model failure**. It is the
+correct answer to a question the data cannot answer. Forcing a recency-based label
+would give AUC 1.0 by leakage — a pretty number and a false one. The rule I adopted:
+*when a label has fewer than 5% positives, the classifier is not evaluable, and the
+result should be reported as a data limitation, not a model metric.* The code now
+emits a warning when this happens.
 
-**O aprendizado que fica.** Um AUC de 0.537 neste dataset **não é falha do
-modelo**. É a resposta correta para uma pergunta que o dado não permite
-responder. A alternativa — forçar um label de recência e obter AUC 1.0 por
-vazamento — produziria um número bonito e falso. A regra que adotei: *quando o
-label tem menos de 5% de positivos, o classificador não é avaliável; o resultado
-deve ser reportado como limitação do dado, não como métrica de modelo.*
+### 5. Demand is concentrated, so a popularity baseline is hard to beat
 
-Este é exatamente o problema que o [GIRO-SYNTH](https://github.com/vinidias/GiroAI-SYNTH)
-resolve: lá existe um hazard de churn real, com indicadores antecedentes
-correlacionados, e o AUC sobe para 0.743 (0.988 contra o ground truth).
+![Popularity concentration](docs/images/05_popularity.png)
 
-## 5. Demand is concentrated — which caps what personalisation can do
+**What it shows.** A small number of SKUs drive 80% of units sold, and the average
+customer buys ~85 distinct SKUs out of 144.
 
-![Recommender coverage](docs/images/05_recommender_coverage.png)
-
-**Leitura:** a small number of SKUs drive 80% of units sold, and the average customer buys ~85 distinct SKUs (of 144). This is a **dense** matrix, so ALS has enough signal — recall@10 = 0.208 — but the popularity curve means a naive "recommend the top sellers" baseline is already strong.
-
-**O que medir:** always report recall@10 against a **popularity baseline**, not against zero. Otherwise the recommender looks better than it is.
-
-## 6. A/B testing: the uplift is large, but bootstrap it before believing
-
-![A/B impact](docs/images/06_ab_impact.png)
-
-**Leitura:** the treatment shifts the revenue distribution visibly (Welch t-test, p ≈ 0). The bootstrap of the uplift is tight and far from zero — the harness is sound.
-
-**O que fazer:** report the **bootstrap CI** of the uplift, not just the p-value. A p-value tells you the effect exists; the CI tells you whether it is large enough to act on.
-
-## 7. Prices are anchored to real commodity indices
-
-![CEPEA indices](docs/images/07_cepea_coupling.png)
-
-**Leitura:** coffee, corn, cattle and soy (real CEPEA series, 5,742 daily observations via [agrobr](https://github.com/bruno-portfolio/agrobr)) show the shocks that feed SKU cost. Coffee nearly doubled; corn and cattle moved within ±20%.
-
-**Por que importa:** a pricing model that ignores the input-cost index will attribute a cost-driven price change to demand. The macro feature is in the feature frame and logged to MLflow (`elasticity_has_cepea`), and it enters the OLS only when it varies within category × month (rank-safe).
+**What to measure.** Always report recall@10 against a popularity baseline, not against
+zero. A recommender that cannot beat "recommend the top sellers" is not adding value,
+however good the absolute number looks.
 
 ---
 
-## Quick start
+## 🛠️ How the pipeline works
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e ".[dev]"
-
-python -m pipelines.train
-mlflow ui --backend-store-uri sqlite:///mlflow.db
-pytest -v
-
-# regenerate the charts
-python scripts/generate_deep_charts.py
+```
+Atlas CSVs ──► validate.py ──► features/build.py ──► models/ ──► MLflow
+                │                    │                   │
+       14 anomalies cleaned     RFM · price panel    OLS · LightGBM
+       audit log per step       interactions         KMeans · ALS
 ```
 
-## Data quality (Atlas anomalies handled)
+| Stage | Module | What it does |
+|---|---|---|
+| **Ingest** | `src/data/validate.py` | Pandera schemas + 14 anomaly cleaners, each logged |
+| **Enrich** | `src/data/macro.py` | CEPEA (5,742 daily obs) + USDA PSD (295 annual obs) via `agrobr` |
+| **Features** | `src/features/build.py` | Elasticity panel · RFM · interaction matrix |
+| **Models** | `src/models/` | Within-SKU OLS · calibrated LightGBM · KMeans/DBSCAN · implicit ALS |
+| **Experiment** | `src/experiments/ab_test.py` | Welch t-test · two-proportion z-test · bootstrap CI |
+| **Monitor** | `src/monitoring/drift.py` | Evidently drift report |
+| **Orchestrate** | `pipelines/train.py` | End-to-end run with MLflow tracking |
 
-The Atlas intentionally ships controlled data-quality defects. `src/data/validate.py` cleans them and logs every removal so the pipeline is auditable:
+---
 
-The loader handles **14 controlled anomalies**. Each one has a regression test in
+## 📊 Results
+
+| Model | Metric | Atlas | GIRO-SYNTH |
+|---|---|---|---|
+| Recommender (ALS) | recall@10 | 0.208 | **0.244** |
+| Segmentation (KMeans) | silhouette | 0.413 | **0.559** |
+| Churn (LightGBM) | ROC-AUC | 0.537 | **0.675** |
+| Elasticity (within-SKU OLS) | R² | 0.004 | **0.700** |
+
+![Atlas vs GIRO-SYNTH](docs/images/08_benchmark.png)
+
+The right-hand column is the same pipeline run on [GIRO-SYNTH](https://github.com/vinidias/GiroAI-SYNTH),
+a synthetic dataset where each behavioural signal is generated from a documented
+parameter. The gap is not a better model — it is a dataset that contains the signal.
+
+**Two bugs the ground truth exposed in this pipeline:**
+
+- **Elasticity** used a pooled OLS that conflated three sources of price variation.
+  Within-SKU × month fixed effects took R² from 0.106 to 0.700 (Pearson 0.995 against
+  the true ε).
+- **Recall@10** hid "the last item per user", which is always the smallest purchase.
+  Leave-one-out over 500 sampled users took it from 0.015 to 0.244.
+
+---
+
+## 🔒 Data quality
+
+The Atlas ships **14 controlled anomalies**. Each one has a regression test in
 `tests/test_anomalies.py`, so a future change cannot silently reintroduce it.
 
 | # | Anomaly | Scale | Handling |
@@ -140,102 +162,96 @@ The loader handles **14 controlled anomalies**. Each one has a regression test i
 | 4b | Empty `item_pedido_id` | 1 row | dropped (reconciles the manifesto) |
 | 5 | Capitalization drift (`Faturado`, `Mercearia`) | 14 rows | UPPER + strip |
 | 6 | Discount stored as percent (0–8) | all items | /100 |
-| 7 | **Box-conversion price inflation** (CX SKUs at 100–450× cost) | 25,556 items | recompute from category median markup |
+| 7 | **Box-conversion price inflation** | 25,556 items | recompute from category median markup |
 | 8 | **Decimal comma** in price (`"11,09"`) | 12 items | parse PT-BR number |
 | 9 | **Discount shown but not applied** | 76,027 items | recompute `valor_mercadoria` |
 | 10 | Negative `quantidade_solicitada` | 1 item | clipped to 0 |
-| 11 | **Mixed date formats** (12 in DD/MM/YYYY) | 12 orders | ISO first, then `dayfirst` |
+| 11 | **Mixed date formats** | 12 orders | ISO first, then `dayfirst` |
 | 12 | Orphan product `P999` | 1 item | dropped |
 | 13 | Optional nulls (legitimate) | 84 SKUs / 5,001 orders | kept, asserted |
 | 14 | Prices never ≤ 0 | — | asserted |
 
-Anomalies **7** and **9** were the expensive ones: #7 added R$ 211M of phantom
-revenue (caught by eyeballing a chart that started with an implausible category),
-and #9 made 50% of line items carry a discount that never reached the total.
-Both are now fixed and pinned by a test.
+Anomalies **7** and **9** were the expensive ones: #7 added R$ 211M of phantom revenue,
+and #9 left 50% of line items carrying a discount that never reached the total.
 
-## Results on the real Atlas data
+---
 
-| Model | Metric | Value | Reading |
-|---|---|---|---|
-| Recommender (ALS) | recall@10 | **0.208** | solid for 144 SKUs / 480 users |
-| Segmentation (KMeans) | silhouette | **0.413** | acceptable, k=2 |
-| Churn (LightGBM) | ROC-AUC | **0.537** | weak — no churners in the data |
-| Elasticity (OLS) | R² | **0.004** | weak — no price response in the data |
-| A/B simulation | uplift / p | 15.6% / ~0 | synthetic uplift, validates the harness |
+## 🌾 Macro features (CEPEA + USDA via agrobr)
 
-### Honest notes on the weak signals
-
-**Elasticity R² = 0.004.** The Atlas assigns prices through 5 price tables (`fator_sobre_lista` from 0.88 to 1.12) but does not simulate demand response to those prices. Quantity is generated independently of price, so there is no elasticity signal to recover. The model is correctly specified (within SKU × month fixed effects) and would work on data with real price variation; the limitation is the dataset, not the code.
-
-**Churn AUC = 0.537.** All 480 Atlas customers are ATIVO and buy in all 9 quarters, so the dataset contains no churners. We define churn behaviourally (revenue in last 180 days < 50% of the prior 180 days → 21 customers, 4.4%). RFM features barely predict that decline, which is the honest result: the Atlas was built for operational/analytics study, not retention modelling.
-
-The recommender and segmentation results are the ones that hold up on this data.
-
-## Atlas vs GIRO-SYNTH: what a known ground truth changes
-
-The same Giro AI pipeline, run on both datasets:
-
-| Model | Atacado Atlas | GIRO-SYNTH | Why |
-|---|---|---|---|
-| Price elasticity (R²) | 0.004 | **0.700** | Atlas generates quantity independently of price |
-| Churn (ROC-AUC) | 0.537 | **0.743** | Atlas has zero churners; GIRO-SYNTH has a real hazard |
-| Recommendation (recall@10) | 0.208 | **0.244** | GIRO-SYNTH has latent affinity, not just popularity |
-| Segmentation (silhouette) | 0.413 | **0.559** | richer behavioural spread |
-
-Two fixes were required in the Giro AI code to make this comparison fair, and they are now the default:
-
-- **Elasticity** uses a within-SKU × month fixed-effects OLS. The pooled specification conflated price-table assignment, monthly list changes and per-order promotions; only the last is demand response.
-- **Recall@10** uses leave-one-out over 500 sampled users. The previous "last item per user" proxy held out each user's smallest purchase and understated recall by ~16×.
-
-[GIRO-SYNTH](https://github.com/vinidias/GiroAI-SYNTH) (generator + dataset card) · [visual report](https://vinidias.github.io/GiroAI-SYNTH/report.html)
-
-## CRISP-DM
-
-1. **Business Understanding** — four commercial questions → four models → seven decision charts
-2. **Data Understanding** — 22-table Atlas, Pandera schemas, anomaly catalogue
-3. **Data Preparation** — `src/features/build.py` (RFM, price panel, interactions)
-4. **Modeling** — `src/models/` (statsmodels, LightGBM, KMeans/DBSCAN, implicit ALS)
-5. **Evaluation** — MLflow metrics + `src/experiments/ab_test.py`
-6. **Deployment** — `pipelines/train.py` + `src/monitoring/drift.py` (Evidently)
-
-## Macro features (agrobr / CEPEA + USDA)
-
-The elasticity model is enriched with real Brazilian commodity prices fetched via [**agrobr**](https://github.com/bruno-portfolio/agrobr):
+![CEPEA indices](docs/images/07_cepea.png)
 
 | Atlas category | CEPEA commodity |
 |---|---|
 | BEBIDAS | cafe |
-| MERCEARIA / PADARIA / SNACKS / PET | milho |
-| LIMPEZA / HIGIENE / DESCARTAVEIS | algodao |
-| FRIOS / LATICINIOS | boi_gordo |
+| MERCEARIA · PADARIA · SNACKS · PET | milho |
+| LIMPEZA · HIGIENE · DESCARTAVEIS | algodao |
+| FRIOS · LATICINIOS | boi_gordo |
 | CONGELADOS | frango_congelado |
 | HORTIFRUTI | soja |
 
-- **CEPEA** — 5,742 daily observations (6 commodities), cached, aggregated monthly, used in the OLS as `log_preco_commodity`.
-- **USDA PSD** — 295 annual observations (4 commodities × 5 years), requires `AGROBR_USDA_API_KEY`. Kept in the feature frame for EDA but **not** in the OLS: production is constant within category × year and collinear with the category dummies (rank 10 of 14).
-- Fails gracefully: without network/key the model runs with NaN macro columns.
+- **CEPEA** — 5,742 daily observations, cached, aggregated monthly, used in the OLS as
+  `log_preco_commodity` (rank-safe: varies within category × month).
+- **USDA PSD** — 295 annual observations, requires `AGROBR_USDA_API_KEY`. Kept in the
+  feature frame for EDA but **not** in the OLS: production is constant within
+  category × year and collinear with the category dummies (rank 10 of 14).
+- Fails gracefully: without network or key the model runs with NaN macro columns.
 
-**License note**: CEPEA data is CC BY-NC 4.0 — attribution required, commercial use needs CEPEA authorization.
+> **License note.** CEPEA data is CC BY-NC 4.0 — attribution required, commercial use
+> needs CEPEA authorization.
 
-## Layout
+---
+
+## 🧪 A/B testing
+
+![A/B harness](docs/images/06_ab_test.png)
+
+The harness injects a known uplift into a treatment group and checks that the test
+recovers it. It reports the **bootstrap CI of the uplift**, not just the p-value — a
+p-value says the effect exists, the CI says whether it is large enough to act on.
+
+---
+
+## 🚀 Quick start
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev]"
+
+python -m pipelines.train                     # train + log to MLflow
+mlflow ui --backend-store-uri sqlite:///mlflow.db
+pytest -v                                     # 38 tests
+
+python scripts/generate_deep_charts.py        # regenerate the 8 charts above
+```
+
+## 📁 Layout
 
 ```
 src/
-  config.py
-  data/          validate.py (Atlas schemas + cleaning) · macro.py (CEPEA/USDA) · synthetic.py (fallback)
-  features/      build.py (elasticity, churn, segmentation, interactions)
-  models/        elasticity · churn · segmentation · recommender · evaluate
-  experiments/   ab_test.py (Welch + two-proportion)
+  data/          validate.py (14 anomaly cleaners) · macro.py (CEPEA/USDA)
+  features/      build.py (elasticity panel, RFM, interactions)
+  models/        elasticity · churn · segmentation · recommender
+  experiments/   ab_test.py (Welch, two-proportion, bootstrap)
   monitoring/    drift.py (Evidently)
 pipelines/       train.py (MLflow end-to-end)
-scripts/         generate_deep_charts.py (7 decision charts)
-tests/           24 tests across data, features, models, A/B, macro
+scripts/         generate_deep_charts.py
+tests/           38 tests — data, features, models, A/B, macro, anomalies
 ```
 
-## Metrics tracked
+## 📈 Metrics tracked in MLflow
 
-- `elasticity_r2`, `elasticity_has_cepea`, `elasticity_usda_feature_rows`
-- `churn_auc`, `churn_pr_auc`, `churn_brier`
-- `seg_k`, `seg_silhouette`, `seg_davies_bouldin`
-- `recall_at_10`, `ab_p_value`, `ab_uplift_pct`
+`elasticity_r2` · `elasticity_has_cepea` · `churn_auc` · `churn_pr_auc` ·
+`churn_brier` · `seg_k` · `seg_silhouette` · `seg_davies_bouldin` ·
+`recall_at_10` · `ab_p_value` · `ab_uplift_pct`
+
+---
+
+## 🔗 Related
+
+- **[GIRO-SYNTH](https://github.com/vinidias/GiroAI-SYNTH)** — the dataset with known
+  ground truth used in the comparison above
+- **[Visual report](https://vinidias.github.io/GiroAI-SYNTH/report.html)** — the
+  GIRO-SYNTH charts in one page
+- **[Deep dive](https://github.com/vinidias/GiroAI-SYNTH/blob/master/PORTFOLIO_ATLAS_VS_GIRO_SYNTH.md)**
+  — the full story of the three bugs the ground truth exposed
