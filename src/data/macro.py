@@ -21,13 +21,22 @@ from src.config import INTERIM_DIR
 
 log = logging.getLogger(__name__)
 
+# Atlas categories are UPPER CASE (12 of them). Each maps to a CEPEA commodity
+# that best proxies its input cost. Categories without a close proxy are left
+# unmapped -> NaN macro features (the model tolerates that).
 CATEGORY_TO_COMMODITY: dict[str, str] = {
-    "Bebidas": "cafe",
-    "Mercearia": "milho",
-    "Limpeza": "algodao",
-    "Perecíveis": "boi_gordo",
-    "Congelados": "frango_congelado",
-    "Higiene": "soja",
+    "MERCEARIA": "milho",
+    "BEBIDAS": "cafe",
+    "LIMPEZA": "algodao",
+    "HIGIENE": "algodao",
+    "FRIOS": "boi_gordo",
+    "LATICINIOS": "boi_gordo",
+    "CONGELADOS": "frango_congelado",
+    "HORTIFRUTI": "soja",
+    "PADARIA": "milho",
+    "SNACKS": "milho",
+    "PET": "milho",
+    "DESCARTAVEIS": "algodao",
 }
 
 # USDA PSD supports only this subset (see agrobr usda catalogue).

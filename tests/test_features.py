@@ -1,6 +1,7 @@
+"""Feature-builder tests against the real Atlas tables."""
 import pytest
 
-from src.data.synthetic import generate
+from src.data.validate import load_and_validate_all
 from src.features.build import (
     build_churn_features,
     build_elasticity_features,
@@ -11,15 +12,17 @@ from src.features.build import (
 
 @pytest.fixture(scope="module")
 def tables():
-    return generate(n_customers=50, n_products=20, n_orders=400, days=200)
+    return load_and_validate_all()
 
 
 def test_elasticity_features(tables):
     df = build_elasticity_features(tables["pedidos"], tables["itens_pedido"],
-                                   tables["produtos"], tables["clientes"])
+                                   tables["produtos"], tables["clientes"],
+                                   with_macro=False)
     assert len(df) > 0
     assert df["log_preco"].notna().all()
     assert df["log_qty"].notna().all()
+    assert df["categoria"].nunique() == 12
 
 
 def test_churn_features(tables):
@@ -27,6 +30,7 @@ def test_churn_features(tables):
     assert "churn" in df.columns
     assert df["churn"].isin([0, 1]).all()
     assert len(df) == len(tables["clientes"])
+    assert 0 < df["churn"].mean() < 0.5
 
 
 def test_segmentation_features(tables):
@@ -39,4 +43,3 @@ def test_interactions(tables):
     df = build_interactions(tables["pedidos"], tables["itens_pedido"])
     assert {"cliente_id", "produto_id", "n"}.issubset(df.columns)
     assert (df["n"] > 0).all()
-

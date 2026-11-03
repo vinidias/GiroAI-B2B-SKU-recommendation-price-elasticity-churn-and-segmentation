@@ -1,0 +1,1164 @@
+{
+  "produtos": {
+    "granularidade": "Um SKU",
+    "campos": [
+      {
+        "nome": "produto_id",
+        "tipo": "STRING",
+        "descricao": "Chave do SKU"
+      },
+      {
+        "nome": "codigo_barras",
+        "tipo": "STRING",
+        "descricao": "Codigo ficticio no formato EAN; nao passa em validacao real"
+      },
+      {
+        "nome": "descricao",
+        "tipo": "STRING",
+        "descricao": "Descricao comercial do item"
+      },
+      {
+        "nome": "marca",
+        "tipo": "STRING",
+        "descricao": "Marca ficticia"
+      },
+      {
+        "nome": "categoria",
+        "tipo": "STRING",
+        "descricao": "Categoria de merchandising"
+      },
+      {
+        "nome": "familia",
+        "tipo": "STRING",
+        "descricao": "PERECIVEL ou NAO_PERECIVEL"
+      },
+      {
+        "nome": "unidade_venda",
+        "tipo": "STRING",
+        "descricao": "CX, UN, KG, L ou FD"
+      },
+      {
+        "nome": "unidade_estoque",
+        "tipo": "STRING",
+        "descricao": "UN ou KG; base de saldo, custo e movimento"
+      },
+      {
+        "nome": "fator_conversao",
+        "tipo": "DECIMAL(12,4)",
+        "descricao": "Unidades de estoque em uma unidade de venda"
+      },
+      {
+        "nome": "peso_unitario_kg",
+        "tipo": "DECIMAL(10,3)",
+        "descricao": "Peso liquido de uma unidade de venda"
+      },
+      {
+        "nome": "validade_dias",
+        "tipo": "INT",
+        "descricao": "Prazo desde a entrada; vazio em nao perecivel"
+      },
+      {
+        "nome": "temperatura_max_c",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Limite didatico de conservacao; vazio em nao perecivel"
+      },
+      {
+        "nome": "fornecedor_id",
+        "tipo": "STRING",
+        "descricao": "FK fornecedores"
+      },
+      {
+        "nome": "custo_referencia_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Custo inicial por unidade de estoque"
+      },
+      {
+        "nome": "preco_lista_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Preco de referencia por unidade de venda; base das tabelas"
+      },
+      {
+        "nome": "situacao",
+        "tipo": "STRING",
+        "descricao": "ATIVO ou INATIVO"
+      }
+    ],
+    "chave": [
+      "produto_id"
+    ]
+  },
+  "clientes": {
+    "granularidade": "Um cliente atacadista, cadastro estatico",
+    "campos": [
+      {
+        "nome": "cliente_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "razao_social",
+        "tipo": "STRING",
+        "descricao": "Empresa ficticia"
+      },
+      {
+        "nome": "nome_fantasia",
+        "tipo": "STRING",
+        "descricao": "Nome de fantasia ficticio"
+      },
+      {
+        "nome": "cnpj",
+        "tipo": "STRING",
+        "descricao": "14 digitos ficticios com prefixo 99; nao existe na Receita Federal"
+      },
+      {
+        "nome": "segmento",
+        "tipo": "STRING",
+        "descricao": "MERCEARIA, PADARIA, BAR_RESTAURANTE, LANCHONETE, ACOUGUEIRO ou ATACADO_SERVICO"
+      },
+      {
+        "nome": "cidade",
+        "tipo": "STRING",
+        "descricao": "Cidade"
+      },
+      {
+        "nome": "uf",
+        "tipo": "STRING",
+        "descricao": "Unidade da federacao"
+      },
+      {
+        "nome": "vendedor_id",
+        "tipo": "STRING",
+        "descricao": "FK vendedores"
+      },
+      {
+        "nome": "rota_id",
+        "tipo": "STRING",
+        "descricao": "FK rotas; define o dia de entrega do cliente"
+      },
+      {
+        "nome": "tabela_preco_id",
+        "tipo": "STRING",
+        "descricao": "Tabela vigente hoje; nao valida para faturamento passado"
+      },
+      {
+        "nome": "prazo_pagamento_dias",
+        "tipo": "INT",
+        "descricao": "Prazo apos faturamento"
+      },
+      {
+        "nome": "limite_credito_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Limite aprovado hoje; historico em limite_credito"
+      },
+      {
+        "nome": "data_cadastro",
+        "tipo": "DATE",
+        "descricao": "Inicio da relacao"
+      },
+      {
+        "nome": "situacao",
+        "tipo": "STRING",
+        "descricao": "ATIVO ou INATIVO"
+      }
+    ],
+    "chave": [
+      "cliente_id"
+    ]
+  },
+  "fornecedores": {
+    "granularidade": "Um fornecedor e suas faixas de bonificacao",
+    "campos": [
+      {
+        "nome": "fornecedor_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "razao_social",
+        "tipo": "STRING",
+        "descricao": "Empresa ficticia"
+      },
+      {
+        "nome": "pais",
+        "tipo": "STRING",
+        "descricao": "Pais de origem"
+      },
+      {
+        "nome": "uf",
+        "tipo": "STRING",
+        "descricao": "Unidade da federacao no Brasil"
+      },
+      {
+        "nome": "tipo",
+        "tipo": "STRING",
+        "descricao": "INDUSTRIA, DISTRIBUIDOR ou COOPERATIVA"
+      },
+      {
+        "nome": "canal",
+        "tipo": "STRING",
+        "descricao": "DIRETO ou MERCADO"
+      },
+      {
+        "nome": "prazo_contratado_dias",
+        "tipo": "INT",
+        "descricao": "Prazo contratado ate recebimento"
+      },
+      {
+        "nome": "prazo_pagamento_dias",
+        "tipo": "INT",
+        "descricao": "Prazo apos recebimento"
+      },
+      {
+        "nome": "bonificacao_faixa1_un",
+        "tipo": "INT",
+        "descricao": "Quantidade recebida que dispara a primeira faixa"
+      },
+      {
+        "nome": "bonificacao_faixa1_pct",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Desconto da primeira faixa"
+      },
+      {
+        "nome": "bonificacao_faixa2_un",
+        "tipo": "INT",
+        "descricao": "Quantidade recebida que dispara a segunda faixa"
+      },
+      {
+        "nome": "bonificacao_faixa2_pct",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Desconto da segunda faixa"
+      }
+    ],
+    "chave": [
+      "fornecedor_id"
+    ]
+  },
+  "vendedores": {
+    "granularidade": "Um vendedor",
+    "campos": [
+      {
+        "nome": "vendedor_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "nome",
+        "tipo": "STRING",
+        "descricao": "Nome ficticio"
+      },
+      {
+        "nome": "regiao",
+        "tipo": "STRING",
+        "descricao": "Regiao de atuacao"
+      },
+      {
+        "nome": "comissao_pct",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Comissao sobre a mercadoria faturada"
+      },
+      {
+        "nome": "meta_mensal_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Meta mensal de faturamento"
+      },
+      {
+        "nome": "data_admissao",
+        "tipo": "DATE",
+        "descricao": "Admissao"
+      },
+      {
+        "nome": "situacao",
+        "tipo": "STRING",
+        "descricao": "ATIVO ou INATIVO"
+      }
+    ],
+    "chave": [
+      "vendedor_id"
+    ]
+  },
+  "veiculos": {
+    "granularidade": "Um veiculo da frota propria",
+    "campos": [
+      {
+        "nome": "veiculo_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "descricao",
+        "tipo": "STRING",
+        "descricao": "Identificacao ficticia"
+      },
+      {
+        "nome": "tipo",
+        "tipo": "STRING",
+        "descricao": "VAN, CAVALO ou TRUCK"
+      },
+      {
+        "nome": "capacidade_kg",
+        "tipo": "INT",
+        "descricao": "Capacidade de carga"
+      },
+      {
+        "nome": "ano",
+        "tipo": "INT",
+        "descricao": "Ano do modelo"
+      }
+    ],
+    "chave": [
+      "veiculo_id"
+    ]
+  },
+  "rotas": {
+    "granularidade": "Uma rota com dia fixo na semana",
+    "campos": [
+      {
+        "nome": "rota_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "descricao",
+        "tipo": "STRING",
+        "descricao": "Nome da rota"
+      },
+      {
+        "nome": "dia_semana",
+        "tipo": "INT",
+        "descricao": "1=segunda ... 7=domingo"
+      },
+      {
+        "nome": "regiao",
+        "tipo": "STRING",
+        "descricao": "Regiao atendida"
+      },
+      {
+        "nome": "municipio_principal",
+        "tipo": "STRING",
+        "descricao": "Municipio de referencia"
+      },
+      {
+        "nome": "motorista_nome",
+        "tipo": "STRING",
+        "descricao": "Motorista alocado"
+      },
+      {
+        "nome": "veiculo_id",
+        "tipo": "STRING",
+        "descricao": "FK veiculos"
+      },
+      {
+        "nome": "limite_paradas",
+        "tipo": "INT",
+        "descricao": "Capacidade operacional de paradas por viagem"
+      },
+      {
+        "nome": "km_sugerido",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Quilometragem de referencia"
+      },
+      {
+        "nome": "situacao",
+        "tipo": "STRING",
+        "descricao": "ATIVA ou INATIVA"
+      }
+    ],
+    "chave": [
+      "rota_id"
+    ]
+  },
+  "tabelas_preco": {
+    "granularidade": "Uma tabela de preco por segmento",
+    "campos": [
+      {
+        "nome": "tabela_preco_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "nome",
+        "tipo": "STRING",
+        "descricao": "Nome da tabela"
+      },
+      {
+        "nome": "segmento",
+        "tipo": "STRING",
+        "descricao": "Segmento tipico; vazio quando a tabela atende varios"
+      },
+      {
+        "nome": "fator_sobre_lista",
+        "tipo": "DECIMAL(10,4)",
+        "descricao": "Multiplicador sobre o preco de lista"
+      },
+      {
+        "nome": "vigencia_inicio",
+        "tipo": "DATE",
+        "descricao": "Inicio da tabela"
+      },
+      {
+        "nome": "vigencia_fim",
+        "tipo": "DATE",
+        "descricao": "Fim; vazio enquanto vigente"
+      }
+    ],
+    "chave": [
+      "tabela_preco_id"
+    ]
+  },
+  "precos_produto": {
+    "granularidade": "O preco de um SKU em uma tabela, com vigencia",
+    "campos": [
+      {
+        "nome": "preco_produto_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "tabela_preco_id",
+        "tipo": "STRING",
+        "descricao": "FK tabelas_preco"
+      },
+      {
+        "nome": "produto_id",
+        "tipo": "STRING",
+        "descricao": "FK produtos"
+      },
+      {
+        "nome": "preco_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Preco por unidade de venda vigente naquele periodo"
+      },
+      {
+        "nome": "vigencia_inicio",
+        "tipo": "DATE",
+        "descricao": "Inicio da vigencia"
+      },
+      {
+        "nome": "vigencia_fim",
+        "tipo": "DATE",
+        "descricao": "Fim; vazio enquanto vigente"
+      }
+    ],
+    "chave": [
+      "preco_produto_id"
+    ]
+  },
+  "limite_credito": {
+    "granularidade": "O limite de credito de um cliente em um intervalo",
+    "campos": [
+      {
+        "nome": "limite_credito_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "cliente_id",
+        "tipo": "STRING",
+        "descricao": "FK clientes"
+      },
+      {
+        "nome": "vigencia_inicio",
+        "tipo": "DATE",
+        "descricao": "Inicio da vigencia"
+      },
+      {
+        "nome": "vigencia_fim",
+        "tipo": "DATE",
+        "descricao": "Fim; vazio enquanto vigente"
+      },
+      {
+        "nome": "limite_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Limite aprovado no periodo"
+      },
+      {
+        "nome": "motivo",
+        "tipo": "STRING",
+        "descricao": "ALTERACAO, REAVALIACAO ou INADIMPENCIA"
+      }
+    ],
+    "chave": [
+      "limite_credito_id"
+    ]
+  },
+  "compras": {
+    "granularidade": "Um pedido de compra",
+    "campos": [
+      {
+        "nome": "compra_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "fornecedor_id",
+        "tipo": "STRING",
+        "descricao": "FK fornecedores"
+      },
+      {
+        "nome": "data_compra",
+        "tipo": "DATE",
+        "descricao": "Emissao"
+      },
+      {
+        "nome": "data_prevista",
+        "tipo": "DATE",
+        "descricao": "Recebimento previsto"
+      },
+      {
+        "nome": "data_recebimento",
+        "tipo": "DATE",
+        "descricao": "Recebimento real; vazio se nao ocorreu no corte"
+      },
+      {
+        "nome": "status_compra",
+        "tipo": "STRING",
+        "descricao": "RECEBIDA, RECEBIDA_PARCIAL ou PENDENTE"
+      }
+    ],
+    "chave": [
+      "compra_id"
+    ]
+  },
+  "itens_compra": {
+    "granularidade": "Um SKU dentro de uma compra",
+    "campos": [
+      {
+        "nome": "item_compra_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "compra_id",
+        "tipo": "STRING",
+        "descricao": "FK compras"
+      },
+      {
+        "nome": "produto_id",
+        "tipo": "STRING",
+        "descricao": "FK produtos"
+      },
+      {
+        "nome": "quantidade_pedida_un",
+        "tipo": "INT",
+        "descricao": "Quantidade contratada em unidade de estoque"
+      },
+      {
+        "nome": "quantidade_recebida_un",
+        "tipo": "INT",
+        "descricao": "Quantidade aceita no recebimento"
+      },
+      {
+        "nome": "custo_unitario_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Custo bruto contratado por unidade de estoque"
+      },
+      {
+        "nome": "custo_unitario_efetivo_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Custo apos bonificacao; forma o custo do lote"
+      },
+      {
+        "nome": "bonificacao_pct",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Faixa aplicada sobre a quantidade recebida"
+      }
+    ],
+    "chave": [
+      "item_compra_id"
+    ]
+  },
+  "ocorrencias_recebimento": {
+    "granularidade": "Uma nao conformidade de um item comprado",
+    "campos": [
+      {
+        "nome": "ocorrencia_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "item_compra_id",
+        "tipo": "STRING",
+        "descricao": "FK itens_compra"
+      },
+      {
+        "nome": "data_ocorrencia",
+        "tipo": "DATE",
+        "descricao": "Data do registro"
+      },
+      {
+        "nome": "tipo_ocorrencia",
+        "tipo": "STRING",
+        "descricao": "AVARIA, FALTA, DIVERGENCIA_CAMPO ou DANO_FRETE"
+      },
+      {
+        "nome": "quantidade_afetada_un",
+        "tipo": "INT",
+        "descricao": "Quantidade nao aceita, em unidade de estoque"
+      },
+      {
+        "nome": "status_ocorrencia",
+        "tipo": "STRING",
+        "descricao": "ABERTA, ACEITA, NEGADA ou CREDITADA"
+      },
+      {
+        "nome": "valor_credito_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Credito; vazio se nao creditado"
+      }
+    ],
+    "chave": [
+      "ocorrencia_id"
+    ]
+  },
+  "lotes": {
+    "granularidade": "Um lote recebido, devolvido ou de saldo inicial",
+    "campos": [
+      {
+        "nome": "lote_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "produto_id",
+        "tipo": "STRING",
+        "descricao": "FK produtos"
+      },
+      {
+        "nome": "item_compra_id",
+        "tipo": "STRING",
+        "descricao": "FK opcional; vazio em abertura e devolucao"
+      },
+      {
+        "nome": "data_entrada",
+        "tipo": "DATE",
+        "descricao": "Entrada no armazem"
+      },
+      {
+        "nome": "data_validade",
+        "tipo": "DATE",
+        "descricao": "Ultimo dia permitido para expedicao; vazio em nao perecivel"
+      },
+      {
+        "nome": "custo_unitario_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Custo especifico imutavel do lote"
+      },
+      {
+        "nome": "armazem_id",
+        "tipo": "STRING",
+        "descricao": "Unico armazem A01"
+      }
+    ],
+    "chave": [
+      "lote_id"
+    ]
+  },
+  "movimentos_estoque": {
+    "granularidade": "Um evento sobre um lote",
+    "campos": [
+      {
+        "nome": "movimento_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "data_movimento",
+        "tipo": "DATE",
+        "descricao": "Data do evento"
+      },
+      {
+        "nome": "lote_id",
+        "tipo": "STRING",
+        "descricao": "FK lotes"
+      },
+      {
+        "nome": "tipo_movimento",
+        "tipo": "STRING",
+        "descricao": "ABERTURA, COMPRA, EXPEDICAO, DEVOLUCAO, VALIDADE, AVARIA ou AJUSTE"
+      },
+      {
+        "nome": "quantidade_un",
+        "tipo": "INT",
+        "descricao": "Assinada: entrada positiva, saida negativa"
+      },
+      {
+        "nome": "valor_custo_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Quantidade assinada vezes custo do lote"
+      },
+      {
+        "nome": "item_pedido_id",
+        "tipo": "STRING",
+        "descricao": "FK opcional; somente expedicao"
+      },
+      {
+        "nome": "devolucao_id",
+        "tipo": "STRING",
+        "descricao": "FK opcional; somente devolucao"
+      }
+    ],
+    "chave": [
+      "movimento_id"
+    ]
+  },
+  "estoque_diario": {
+    "granularidade": "O saldo de um SKU no fechamento do dia",
+    "campos": [
+      {
+        "nome": "data_estoque",
+        "tipo": "DATE",
+        "descricao": "Data do saldo; nunca somar dias para obter saldo atual"
+      },
+      {
+        "nome": "produto_id",
+        "tipo": "STRING",
+        "descricao": "FK produtos"
+      },
+      {
+        "nome": "quantidade_estoque_un",
+        "tipo": "INT",
+        "descricao": "Saldo fisico final"
+      },
+      {
+        "nome": "valor_estoque_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Soma do saldo por lote vezes custo especifico"
+      },
+      {
+        "nome": "quantidade_vencendo_7d_un",
+        "tipo": "INT",
+        "descricao": "Saldo com validade entre a data e sete dias depois"
+      }
+    ],
+    "chave": [
+      "data_estoque",
+      "produto_id"
+    ]
+  },
+  "pedidos": {
+    "granularidade": "Um pedido comercial com a tabela de preco congelada",
+    "campos": [
+      {
+        "nome": "pedido_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "cliente_id",
+        "tipo": "STRING",
+        "descricao": "FK clientes"
+      },
+      {
+        "nome": "vendedor_id",
+        "tipo": "STRING",
+        "descricao": "FK vendedores"
+      },
+      {
+        "nome": "data_pedido",
+        "tipo": "DATE",
+        "descricao": "Data comercial"
+      },
+      {
+        "nome": "data_programacao",
+        "tipo": "DATE",
+        "descricao": "Dia previsto de entrega; gatilho de FEFO e de romaneio"
+      },
+      {
+        "nome": "status_pedido",
+        "tipo": "STRING",
+        "descricao": "CANCELADO, BLOQUEADO_CREDITO, SEM_EXPEDICAO ou FATURADO"
+      },
+      {
+        "nome": "canal_pedido",
+        "tipo": "STRING",
+        "descricao": "TELEFONE, APP, PORTAL ou REPRESENTANTE"
+      },
+      {
+        "nome": "tabela_preco_aplicada",
+        "tipo": "STRING",
+        "descricao": "Tabela em vigor em data_pedido"
+      },
+      {
+        "nome": "peso_total_solicitado_kg",
+        "tipo": "DECIMAL(10,3)",
+        "descricao": "Peso das quantidades solicitadas"
+      },
+      {
+        "nome": "valor_mercadoria_total_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Soma de valor_mercadoria_brl dos itens"
+      },
+      {
+        "nome": "pedido_minimo_atendido",
+        "tipo": "INT",
+        "descricao": "1 quando o valor atinge o minimo de 250,00"
+      },
+      {
+        "nome": "limite_credito_aplicado_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Limite vigente na data do pedido"
+      },
+      {
+        "nome": "exposicao_credito_data_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Saldo a receber do cliente na data do pedido"
+      },
+      {
+        "nome": "frete_rateado_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Custo do romaneio rateado por peso; vazio sem expedicao"
+      },
+      {
+        "nome": "moeda",
+        "tipo": "STRING",
+        "descricao": "Sempre BRL"
+      }
+    ],
+    "chave": [
+      "pedido_id"
+    ]
+  },
+  "itens_pedido": {
+    "granularidade": "Um SKU dentro de um pedido",
+    "campos": [
+      {
+        "nome": "item_pedido_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "pedido_id",
+        "tipo": "STRING",
+        "descricao": "FK pedidos"
+      },
+      {
+        "nome": "produto_id",
+        "tipo": "STRING",
+        "descricao": "FK produtos"
+      },
+      {
+        "nome": "unidade_venda",
+        "tipo": "STRING",
+        "descricao": "Unidade de venda cobrada; deve bater com produtos"
+      },
+      {
+        "nome": "quantidade_solicitada",
+        "tipo": "INT",
+        "descricao": "Demanda na unidade de venda"
+      },
+      {
+        "nome": "quantidade_expedida",
+        "tipo": "INT",
+        "descricao": "Quantidade faturada e baixada do armazem"
+      },
+      {
+        "nome": "preco_unitario_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Preco cobrado por unidade de venda, ja com desconto"
+      },
+      {
+        "nome": "desconto_pct",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Desconto comercial sobre a tabela de preco"
+      },
+      {
+        "nome": "valor_mercadoria_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Expedida vezes preco, arredondado no item"
+      },
+      {
+        "nome": "tributos_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Aliquota didatica de 5 por cento"
+      },
+      {
+        "nome": "comissao_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Comissao do vendedor sobre a mercadoria"
+      },
+      {
+        "nome": "custo_unitario_estoque_medio_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "CMV dividido pela quantidade expedida em estoque"
+      },
+      {
+        "nome": "cmv_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Custo especifico dos lotes consumidos por FEFO ou FIFO"
+      }
+    ],
+    "chave": [
+      "item_pedido_id"
+    ]
+  },
+  "romaneios": {
+    "granularidade": "Uma viagem da frota em um dia",
+    "campos": [
+      {
+        "nome": "romaneio_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "rota_id",
+        "tipo": "STRING",
+        "descricao": "FK rotas"
+      },
+      {
+        "nome": "veiculo_id",
+        "tipo": "STRING",
+        "descricao": "FK veiculos"
+      },
+      {
+        "nome": "motorista_nome",
+        "tipo": "STRING",
+        "descricao": "Motorista da viagem"
+      },
+      {
+        "nome": "data_romaneio",
+        "tipo": "DATE",
+        "descricao": "Data da viagem"
+      },
+      {
+        "nome": "hora_saida",
+        "tipo": "STRING",
+        "descricao": "HH:MM de saida"
+      },
+      {
+        "nome": "hora_retorno",
+        "tipo": "STRING",
+        "descricao": "HH:MM de retorno"
+      },
+      {
+        "nome": "km_total",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Quilometragem percorrida"
+      },
+      {
+        "nome": "custo_km_brl",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Custo por quilometro da viagem"
+      },
+      {
+        "nome": "custo_romaneio_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Quilometragem vezes custo por quilometro"
+      },
+      {
+        "nome": "pedidos_planejados",
+        "tipo": "INT",
+        "descricao": "Pedidos programados para a rota na data"
+      },
+      {
+        "nome": "paradas_realizadas",
+        "tipo": "INT",
+        "descricao": "Paradas com status CONCLUIDA"
+      }
+    ],
+    "chave": [
+      "romaneio_id"
+    ]
+  },
+  "paradas": {
+    "granularidade": "Uma parada do romaneio em um pedido",
+    "campos": [
+      {
+        "nome": "parada_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "romaneio_id",
+        "tipo": "STRING",
+        "descricao": "FK romaneios"
+      },
+      {
+        "nome": "sequencia",
+        "tipo": "INT",
+        "descricao": "Ordem da parada, contigua a partir de 1"
+      },
+      {
+        "nome": "pedido_id",
+        "tipo": "STRING",
+        "descricao": "FK pedidos; um pedido pode ter paradas em romaneios distintos"
+      },
+      {
+        "nome": "hora_chegada",
+        "tipo": "STRING",
+        "descricao": "HH:MM de chegada; vazio quando nao realizada"
+      },
+      {
+        "nome": "km_acumulado",
+        "tipo": "DECIMAL(10,2)",
+        "descricao": "Quilometragem ate a parada; vazio quando nao realizada"
+      },
+      {
+        "nome": "status_parada",
+        "tipo": "STRING",
+        "descricao": "CONCLUIDA, FALHA ou NAO_REALIZADA"
+      },
+      {
+        "nome": "motivo_falha",
+        "tipo": "STRING",
+        "descricao": "CLIENTE_AUSENTE, RECUSA_CLIENTE, AVARIA_NO_RECEBIMENTO, FALHA_NO_CREDITO ou OUTRO"
+      },
+      {
+        "nome": "quantidade_entregue_un",
+        "tipo": "INT",
+        "descricao": "Entregue na unidade de estoque"
+      },
+      {
+        "nome": "quantidade_recusada_un",
+        "tipo": "INT",
+        "descricao": "Recusado pelo cliente na unidade de estoque"
+      },
+      {
+        "nome": "reagendada",
+        "tipo": "INT",
+        "descricao": "1 quando o pedido foi reprogramado para outra viagem"
+      }
+    ],
+    "chave": [
+      "parada_id"
+    ]
+  },
+  "devolucoes": {
+    "granularidade": "Uma devolucao de um SKU sobre um pedido",
+    "campos": [
+      {
+        "nome": "devolucao_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "pedido_id",
+        "tipo": "STRING",
+        "descricao": "FK pedidos"
+      },
+      {
+        "nome": "produto_id",
+        "tipo": "STRING",
+        "descricao": "FK produtos"
+      },
+      {
+        "nome": "data_devolucao",
+        "tipo": "DATE",
+        "descricao": "Data do recebimento da devolucao"
+      },
+      {
+        "nome": "quantidade_un",
+        "tipo": "INT",
+        "descricao": "Quantidade devolvida na unidade de estoque"
+      },
+      {
+        "nome": "motivo_devolucao",
+        "tipo": "STRING",
+        "descricao": "SOBRA, VENCIMENTO, AVARIA, RECUSA_CLIENTE ou DIVERGENCIA_CAMPO"
+      },
+      {
+        "nome": "tratamento",
+        "tipo": "STRING",
+        "descricao": "TROCA, CREDITO, DESCASTE ou DEVOLUCAO_ARMAZEM"
+      },
+      {
+        "nome": "status_devolucao",
+        "tipo": "STRING",
+        "descricao": "APROVADA, PENDENTE ou REJEITADA"
+      },
+      {
+        "nome": "valor_creditado_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Credito concedido; vazio sem aprovacao"
+      }
+    ],
+    "chave": [
+      "devolucao_id"
+    ]
+  },
+  "titulos_financeiros": {
+    "granularidade": "Um titulo a pagar ou receber",
+    "campos": [
+      {
+        "nome": "titulo_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "tipo",
+        "tipo": "STRING",
+        "descricao": "RECEBER ou PAGAR"
+      },
+      {
+        "nome": "pedido_id",
+        "tipo": "STRING",
+        "descricao": "FK opcional; receber"
+      },
+      {
+        "nome": "compra_id",
+        "tipo": "STRING",
+        "descricao": "FK opcional; pagar"
+      },
+      {
+        "nome": "data_emissao",
+        "tipo": "DATE",
+        "descricao": "Faturamento ou recebimento"
+      },
+      {
+        "nome": "data_vencimento",
+        "tipo": "DATE",
+        "descricao": "Vencimento contratual"
+      },
+      {
+        "nome": "valor_original_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Valor nominal; nao e saldo restante"
+      },
+      {
+        "nome": "forma_pagamento",
+        "tipo": "STRING",
+        "descricao": "BOLETO, PIX, CARTAO ou TRANSFERENCIA"
+      }
+    ],
+    "chave": [
+      "titulo_id"
+    ]
+  },
+  "baixas_financeiras": {
+    "granularidade": "Uma liquidacao parcial ou total",
+    "campos": [
+      {
+        "nome": "baixa_id",
+        "tipo": "STRING",
+        "descricao": "Chave"
+      },
+      {
+        "nome": "titulo_id",
+        "tipo": "STRING",
+        "descricao": "FK titulos_financeiros"
+      },
+      {
+        "nome": "data_baixa",
+        "tipo": "DATE",
+        "descricao": "Data efetiva ate o corte"
+      },
+      {
+        "nome": "valor_baixado_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Parcela liquidada; nunca acima do nominal acumulado"
+      },
+      {
+        "nome": "valor_juros_multa_brl",
+        "tipo": "DECIMAL(18,2)",
+        "descricao": "Juros e multa; nao reduz o saldo do titulo"
+      },
+      {
+        "nome": "tipo_baixa",
+        "tipo": "STRING",
+        "descricao": "PARCIAL, TOTAL ou RENEGOCIADO"
+      }
+    ],
+    "chave": [
+      "baixa_id"
+    ]
+  }
+}

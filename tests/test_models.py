@@ -1,6 +1,7 @@
+"""Model smoke tests against the real Atlas features."""
 import pytest
 
-from src.data.synthetic import generate
+from src.data.validate import load_and_validate_all
 from src.features.build import (
     build_churn_features,
     build_elasticity_features,
@@ -15,18 +16,19 @@ from src.models.segmentation import fit_segmentation
 
 @pytest.fixture(scope="module")
 def tables():
-    return generate(n_customers=80, n_products=30, n_orders=900, days=365)
+    return load_and_validate_all()
 
 
 def test_elasticity_fit(tables):
     df = build_elasticity_features(tables["pedidos"], tables["itens_pedido"],
-                                   tables["produtos"], tables["clientes"])
-    model, table = fit_elasticity(df, segment_col="categoria")
+                                   tables["produtos"], tables["clientes"],
+                                   with_macro=False)
+    model, table = fit_elasticity(df, segment_col="categoria", use_macro=False)
     assert 0 <= model.rsquared <= 1
     assert len(table) == df["categoria"].nunique()
 
 
-def test_churn_auc_above_random(tables):
+def test_churn_runs(tables):
     df = build_churn_features(tables["clientes"], tables["pedidos"], tables["itens_pedido"])
     if df["churn"].nunique() < 2:
         pytest.skip("need both classes")
@@ -46,7 +48,6 @@ def test_segmentation(tables):
 def test_recommender(tables):
     inter = build_interactions(tables["pedidos"], tables["itens_pedido"])
     rec = train_recommender(inter, factors=16, iterations=5)
-    recs = recommend(rec, int(rec.user_ids[0]), n=5)
+    recs = recommend(rec, rec.user_ids[0], n=5)
     assert len(recs) <= 5
-    assert all(isinstance(i, int) for i, _ in recs)
-
+    assert all(isinstance(i, str) for i, _ in recs)

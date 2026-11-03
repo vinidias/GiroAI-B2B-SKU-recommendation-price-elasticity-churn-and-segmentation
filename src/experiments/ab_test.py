@@ -53,10 +53,12 @@ def simulate_experiment(pedidos, itens, treatment_share: float = 0.5, uplift: fl
     mask = rng.random(len(cust)) < treatment_share
     treat_ids = set(cust[mask])
     pedidos = pedidos.copy()
-    pedidos["group"] = pedidos["cliente_id"].apply(lambda c: "treatment" if c in treat_ids else "control")
-    totals = itens.groupby("pedido_id")["valor_total"].sum().rename("receita").reset_index()
+    pedidos["group"] = pedidos["cliente_id"].apply(
+        lambda c: "treatment" if c in treat_ids else "control")
+    totals = (itens.groupby("pedido_id")["valor_mercadoria_brl"]
+                   .sum().rename("receita").reset_index())
     df = pedidos.merge(totals, on="pedido_id", how="left").fillna({"receita": 0.0})
-    df = df[df["status"] == "entregue"]
+    df = df[df["status_pedido"] == "FATURADO"]
     df["receita_sim"] = np.where(df["group"] == "treatment", df["receita"] * (1 + uplift), df["receita"])
     control = df[df["group"] == "control"]["receita_sim"].to_numpy()
     treat = df[df["group"] == "treatment"]["receita_sim"].to_numpy()

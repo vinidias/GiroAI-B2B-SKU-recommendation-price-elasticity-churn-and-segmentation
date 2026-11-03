@@ -1,6 +1,7 @@
+"""A/B test unit tests (no Atlas dependency for the statistical core)."""
 import numpy as np
 
-from src.data.synthetic import generate
+from src.data.validate import load_and_validate_all
 from src.experiments.ab_test import simulate_experiment, two_proportion_test, welch_ttest
 
 
@@ -21,8 +22,7 @@ def test_welch():
 
 
 def test_simulate_experiment():
-    tables = generate(n_customers=100, n_products=30, n_orders=1000, days=365)
+    tables = load_and_validate_all()
     out = simulate_experiment(tables["pedidos"], tables["itens_pedido"], uplift=0.10)
     assert "result" in out and "frame" in out
     assert out["result"].treatment_mean >= out["result"].control_mean
-

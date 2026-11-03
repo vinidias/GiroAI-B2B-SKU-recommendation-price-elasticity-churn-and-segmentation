@@ -43,23 +43,23 @@ def train_recommender(interactions: pd.DataFrame, factors: int = 64, iterations:
                              item_index={p: i for i, p in enumerate(item_ids)}, popularity=popularity)
 
 
-def recommend(result: RecommenderResult, user_id: int, n: int = 10):
+def recommend(result: RecommenderResult, user_id, n: int = 10):
     if user_id not in result.user_index:
         top = np.argsort(result.popularity)[::-1][:n]
-        return [(int(result.item_ids[i]), float(result.popularity[i])) for i in top]
+        return [(result.item_ids[i], float(result.popularity[i])) for i in top]
     u = result.user_index[user_id]
     # build a CSR user-items matrix (implicit >=0.7 requires sparse input)
     user_items = sp.csr_matrix(result.model.user_factors[u].reshape(1, -1))
     ids, scores = result.model.recommend(u, user_items, N=n, filter_already_liked_items=True)
-    return [(int(result.item_ids[i]), float(s)) for i, s in zip(ids, scores, strict=False)]
+    return [(result.item_ids[i], float(s)) for i, s in zip(ids, scores, strict=False)]
 
 
 def evaluate_at_k(result: RecommenderResult, interactions: pd.DataFrame, k: int = 10) -> dict:
     hits, total = 0, 0
     last = interactions.sort_values("n").groupby("cliente_id").tail(1)
     for _, row in last.iterrows():
-        recs = [r for r, _ in recommend(result, int(row["cliente_id"]), n=k)]
-        hits += int(int(row["produto_id"]) in recs)
+        recs = [r for r, _ in recommend(result, row["cliente_id"], n=k)]
+        hits += int(row["produto_id"] in recs)
         total += 1
     return {"recall_at_k": hits / total if total else 0.0, "k": k, "n_users": total}
 

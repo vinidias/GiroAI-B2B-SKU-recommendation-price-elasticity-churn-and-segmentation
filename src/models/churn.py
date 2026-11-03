@@ -15,8 +15,11 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from src.config import RANDOM_STATE
 
-FEATURES = ["recencia_dias", "frequencia", "ticket_medio", "receita_total", "skus_distintos", "ultimo_pedido_dias"]
-CATEGORICAL = ["canal", "regiao"]
+# The churn label is a revenue-decline rule based on receita_6m vs
+# receita_6m_anterior. Those two columns are excluded from the feature set to
+# avoid target leakage; the model learns from RFM behaviour instead.
+FEATURES = ["recencia_dias", "frequencia", "ticket_medio", "receita_total", "skus_distintos"]
+CATEGORICAL = ["segmento", "uf"]
 TARGET = "churn"
 
 
