@@ -23,3 +23,6 @@ mlflow.db
 .DS_Store
 Thumbs.db
 .ipynb_checkpoints/
+
+# giro-synth is a separate repository
+giro-synth/
