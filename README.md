@@ -73,3 +73,16 @@ The elasticity model is enriched with real Brazilian commodity prices fetched vi
 
 **License note**: CEPEA data is CC BY-NC 4.0 - attribution required, commercial use needs CEPEA authorization.
 
+### USDA PSD (optional, requires API key)
+
+`src/data/macro.py` also fetches annual USDA Production, Supply and Distribution
+balances for 4 commodities (cafe, milho, algodao, soja) across 5 market years
+(295 rows cached). Requires `AGROBR_USDA_API_KEY` in `.env` (free at
+https://api.data.gov/signup/).
+
+**Modeling note**: `log_producao_usda` is kept in the feature frame for EDA but
+is **not** used by the OLS. Being constant within each category x year, it is
+collinear with the category dummies and would make the design matrix
+rank-deficient (verified: rank 10 of 14 columns). The elasticity model uses only
+CEPEA's `log_preco_commodity`, which varies within category x month (rank 14 of 14).
+
