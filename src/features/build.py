@@ -15,7 +15,8 @@ def _order_totals(pedidos: pd.DataFrame, itens: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_elasticity_features(pedidos, itens, produtos, clientes,
-                                cepea_daily=None, with_macro: bool = True) -> pd.DataFrame:
+                                cepea_daily=None, usda_df=None,
+                                with_macro: bool = True) -> pd.DataFrame:
     df = itens.merge(pedidos[["pedido_id", "cliente_id", "data_pedido"]], on="pedido_id", how="left")
     df = df.merge(clientes[["cliente_id", "canal", "regiao"]], on="cliente_id", how="left")
     df = df.merge(produtos[["produto_id", "categoria", "custo_unitario"]], on="produto_id", how="left")
@@ -32,12 +33,14 @@ def build_elasticity_features(pedidos, itens, produtos, clientes,
     if with_macro:
         try:
             from src.data.macro import attach_macro_features
-            out = attach_macro_features(out, cepea_daily=cepea_daily)
+            out = attach_macro_features(out, cepea_daily=cepea_daily, usda_df=usda_df)
         except Exception as exc:  # keep pipeline resilient
             import logging
             logging.getLogger(__name__).warning("Macro features skipped: %s", exc)
             out["preco_commodity"] = np.nan
             out["log_preco_commodity"] = np.nan
+            out["producao_usda"] = np.nan
+            out["log_producao_usda"] = np.nan
     return out
 
 

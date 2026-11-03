@@ -9,10 +9,13 @@ import statsmodels.formula.api as smf
 def fit_elasticity(df: pd.DataFrame, segment_col: str = "categoria",
                    use_macro: bool = True):
     base = f"log_qty ~ log_preco * C({segment_col})"
-    macro_term = ""
-    if use_macro and "log_preco_commodity" in df.columns and df["log_preco_commodity"].notna().any():
-        macro_term = " + log_preco_commodity"
-    formula = base + macro_term + " + log_custo + margem_unit"
+    macro_terms = ""
+    if use_macro:
+        if "log_preco_commodity" in df.columns and df["log_preco_commodity"].notna().any():
+            macro_terms += " + log_preco_commodity"
+        if "log_producao_usda" in df.columns and df["log_producao_usda"].notna().any():
+            macro_terms += " + log_producao_usda"
+    formula = base + macro_terms + " + log_custo + margem_unit"
     model = smf.ols(formula, data=df).fit(cov_type="HC3")
     rows = []
     base = model.params.get("log_preco", np.nan)
