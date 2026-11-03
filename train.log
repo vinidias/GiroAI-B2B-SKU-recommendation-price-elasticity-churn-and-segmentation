@@ -1,13 +1,0 @@
-2026-11-03 09:29:44,474 INFO Raw data present in D:\Dev\giro-ai\data\raw
-2026-11-03 09:29:44,713 INFO Validated tables: {'clientes': 400, 'produtos': 120, 'pedidos': 6000, 'itens_pedido': 20884, 'precos_produto': 534, 'vendedores': 15}
-2026-11-03 09:29:47,780 INFO Loading CEPEA cache from D:\Dev\giro-ai\data\interim\cepea_daily.parquet
-2026-11-03 09:29:47,823 INFO CEPEA data: 5742 rows
-2026-11-03 09:29:48,263 INFO Elasticity R2=0.096
-2026-11-03 09:29:49,053 INFO Churn AUC=0.971 PR-AUC=0.910 Brier=0.041
-2026-11-03 09:29:49,694 INFO Segmentation k=2 silhouette=0.964
-D:\Dev\giro-ai\.venv\Lib\site-packages\implicit\cpu\als.py:96: RuntimeWarning: OpenBLAS is configured to use 12 threads. It is highly recommended to disable its internal threadpool by setting the environment variable 'OPENBLAS_NUM_THREADS=1' or by calling 'threadpoolctl.threadpool_limits(1, "blas")'. Having OpenBLAS use a threadpool can lead to severe performance issues here.
-  check_blas_config()
-  0%|          | 0/20 [00:00<?, ?it/s]100%|##########| 20/20 [00:00<00:00, 452.25it/s]
-2026-11-03 09:29:49,974 INFO Recommender recall@10=0.125
-2026-11-03 09:29:50,020 INFO A/B uplift=6.47% p=0.0001 significant=True
-2026-11-03 09:29:50,033 INFO Pipeline done: {'elasticity_r2': 0.09566683599011638, 'churn_auc': 0.9709523809523809, 'churn_pr_auc': 0.9103951672920101, 'seg_k': 2, 'seg_silhouette': 0.9640035744117498, 'recommender_recall_at_10': 0.125, 'ab_p_value': 6.901689017566207e-05, 'ab_uplift_pct': 6.473408233168447}
