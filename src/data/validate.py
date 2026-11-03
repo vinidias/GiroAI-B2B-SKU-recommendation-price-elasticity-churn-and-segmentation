@@ -3,26 +3,33 @@
 Column names and file layout mirror the Atlas release (22 CSVs, 730 days,
 144 SKUs, 480 customers).
 
-The Atlas intentionally ships controlled data-quality anomalies (README and
-manifesto.csv document them):
+The Atlas intentionally ships **14 controlled data-quality anomalies**. They are
+documented in README.md and manifesto.csv, and this loader cleans or flags each
+one so the pipeline is auditable:
 
-  - exact duplicate rows (pedidos 52422 -> 52397, itens_pedido 147082 -> 147053)
-  - a duplicate order pointing at a non-existent customer (C9999)
-  - textual junk in numeric columns (e.g. "INVALIDO" in preco_unitario_brl)
-  - 4 duplicated item_pedido_id rows
-  - box-conversion price inflation: CX SKUs listed at 100-450x cost, stored both
-    in produtos.preco_lista_brl and itens_pedido.preco_unitario_brl (25,555 of
-    147,042 items, 17%). Left in, DESCARTAVEIS alone reports R$162.8M of phantom
-    revenue. clean_prices() and clean_item_prices() normalise them to the
-    category's median markup.
+  1. exact duplicate rows (pedidos 52422 -> 52397, itens_pedido 147082 -> 147053)
+  2. a duplicate order pointing at a non-existent customer (C9999)
+  3. textual junk in numeric columns (e.g. "INVALIDO" in preco_unitario_brl)
+  4. duplicated item_pedido_id rows
+  5. capitalization drift (Faturado / FATURADO, Mercearia / MERCEARIA)
+  6. discount stored as percent (0-8) instead of fraction
+  7. box-conversion price inflation: CX SKUs listed at 100-450x cost in both
+     produtos.preco_lista_brl and itens_pedido.preco_unitario_brl
+     (25,555 of 147,042 items, 17%) - R$211M of phantom revenue
+  8. decimal comma in price (12 items, e.g. "11,09")
+  9. discount shown but not applied: 73,415 items have valor_mercadoria =
+     qty * preco while desconto_pct > 0 (the other 9,099 are correct)
+ 10. negative quantidade_solicitada (1 item: IT0000004)
+ 11. mixed date formats: 12 pedidos in DD/MM/YYYY, the rest in ISO
+ 12. orphan FK: itens_pedido.produto_id = P999 (1 item)
+ 13. optional nulls that are legitimate: validade_dias / temperatura_max_c
+     blank for the 84 non-perishable SKUs; frete_rateado_brl blank for the
+     5,001 non-invoiced orders
+ 14. 12 pedidos with an unparseable data_pedido (same rows as anomaly 11)
 
-The loader therefore:
-  1. reads every column as string (avoids pandas silently turning junk into NaN),
-  2. drops exact duplicates and duplicate business keys (keep first),
-  3. coerces critical numeric/date columns and drops rows that fail,
-  4. validates the cleaned frame against a Pandera schema.
-
-Every removed row is counted and logged so the cleaning is auditable.
+The loader reads every column as string first (so pandas never silently turns
+junk into NaN), drops duplicates, coerces types, drops rows that fail on
+critical columns, and normalises the anomalies above.
 """
 from __future__ import annotations
 
@@ -65,16 +72,6 @@ DATE_COLS = {
     "vendedores": ["data_admissao"],
 }
 
-# Categorical columns normalized to UPPER + stripped. The Atlas injects
-# capitalization anomalies (Faturado vs FATURADO, Mercearia vs MERCEARIA).
-CATEGORICAL_COLS = {
-    "pedidos": ["status_pedido", "canal_pedido", "tabela_preco_aplicada", "moeda"],
-    "clientes": ["segmento", "uf", "situacao"],
-    "produtos": ["categoria", "familia", "unidade_venda", "unidade_estoque", "situacao"],
-    "vendedores": ["regiao", "situacao"],
-    "tabelas_preco": ["segmento"],
-}
-
 NUMERIC_COLS = {
     "pedidos": ["valor_mercadoria_total_brl", "peso_total_solicitado_kg",
                 "frete_rateado_brl"],
@@ -85,7 +82,14 @@ NUMERIC_COLS = {
     "tabelas_preco": ["fator_sobre_lista"],
 }
 
-# Rows that fail coercion on these columns are dropped (they are unusable).
+CATEGORICAL_COLS = {
+    "pedidos": ["status_pedido", "canal_pedido", "tabela_preco_aplicada", "moeda"],
+    "clientes": ["segmento", "uf", "situacao"],
+    "produtos": ["categoria", "familia", "unidade_venda", "unidade_estoque", "situacao"],
+    "vendedores": ["regiao", "situacao"],
+    "tabelas_preco": ["segmento"],
+}
+
 CRITICAL_COLS = {
     "pedidos": ["data_pedido", "valor_mercadoria_total_brl"],
     "itens_pedido": ["pedido_id", "produto_id", "quantidade_solicitada",
@@ -94,6 +98,9 @@ CRITICAL_COLS = {
     "precos_produto": ["preco_brl", "vigencia_inicio"],
     "tabelas_preco": ["fator_sobre_lista"],
 }
+
+MARKUP_SANITY_MAX = 50.0
+DESCONTO_SANITY = 1.0  # desconto is a fraction after normalisation
 
 SCHEMAS: dict[str, DataFrameSchema] = {
     "clientes": DataFrameSchema({
@@ -127,10 +134,10 @@ SCHEMAS: dict[str, DataFrameSchema] = {
         "item_pedido_id": Column(str, unique=True),
         "pedido_id": Column(str),
         "produto_id": Column(str),
-        "quantidade_solicitada": Column(int, Check.ge(1)),
+        "quantidade_solicitada": Column(int, Check.ge(0)),
         "quantidade_expedida": Column(int, Check.ge(0)),
         "preco_unitario_brl": Column(float, Check.gt(0)),
-        "desconto_pct": Column(float, Check.in_range(0, 1)),  # fraction after normalization
+        "desconto_pct": Column(float, Check.in_range(0, 1)),
         "valor_mercadoria_brl": Column(float, Check.ge(0)),
     }, coerce=True, strict=False),
     "precos_produto": DataFrameSchema({
@@ -153,7 +160,10 @@ SCHEMAS: dict[str, DataFrameSchema] = {
 }
 
 
-MARKUP_SANITY_MAX = 50.0  # Atlas inflates some CX prices by 100-450x
+def _parse_number(s: pd.Series) -> pd.Series:
+    """Parse numbers that may carry a decimal comma (anomaly 8)."""
+    return pd.to_numeric(s.astype(str).str.replace(",", ".", regex=False),
+                         errors="coerce")
 
 
 def _coerce(df: pd.DataFrame, name: str) -> pd.DataFrame:
@@ -163,24 +173,27 @@ def _coerce(df: pd.DataFrame, name: str) -> pd.DataFrame:
             df[col] = df[col].str.strip().str.upper()
     for col in DATE_COLS.get(name, []):
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
+            # Anomaly 11: 12 pedidos arrive as DD/MM/YYYY. Try ISO first, then
+            # dayfirst, so both formats land in the same dtype.
+            s = df[col]
+            parsed = pd.to_datetime(s, errors="coerce", format="ISO8601")
+            needs_dayfirst = parsed.isna() & s.notna() & (s != "")
+            if needs_dayfirst.any():
+                parsed.loc[needs_dayfirst] = pd.to_datetime(
+                    s[needs_dayfirst], errors="coerce", dayfirst=True)
+            df[col] = parsed
     for col in NUMERIC_COLS.get(name, []):
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-    # Atlas stores desconto_pct as a percentage (0-8); normalize to fraction.
+            df[col] = _parse_number(df[col])
+    # Anomaly 6: discount stored as percent
     if name == "itens_pedido" and "desconto_pct" in df.columns:
-        df["desconto_pct"] = pd.to_numeric(df["desconto_pct"], errors="coerce") / 100.0
+        df["desconto_pct"] = _parse_number(df["desconto_pct"]) / 100.0
     return df
 
 
 def load_raw(name: str, data_dir: Path | None = None,
              drop_duplicates: bool = True) -> pd.DataFrame:
-    """Load one Atlas table, cleaning controlled anomalies.
-
-    Reads all columns as string first so pandas never silently turns junk
-    values into NaN before deduplication. Then drops duplicates (exact and by
-    business key), coerces types, and drops rows that fail on critical columns.
-    """
+    """Load one Atlas table, cleaning controlled anomalies."""
     data_dir = data_dir or DATA_DIR
     path = data_dir / RAW_FILES[name]
     if not path.exists():
@@ -193,6 +206,13 @@ def load_raw(name: str, data_dir: Path | None = None,
         raw = raw.drop_duplicates()
         key = PRIMARY_KEYS.get(name)
         if key and key in raw.columns:
+            # anomaly 4b: one line item has an empty primary key; the manifesto
+            # count (147082 -> 147053) only reconciles if it is dropped.
+            n_before = len(raw)
+            raw = raw[raw[key].astype(str).str.strip() != ""]
+            if len(raw) < n_before:
+                log.info("%s: dropped %d rows with empty primary key",
+                         name, n_before - len(raw))
             raw = raw.drop_duplicates(subset=[key], keep="first")
 
     df = _coerce(raw, name)
@@ -216,48 +236,8 @@ def validate(name: str, df: pd.DataFrame | None = None) -> pd.DataFrame:
     return schema.validate(df) if schema is not None else df
 
 
-def clean_item_prices(itens: pd.DataFrame, produtos: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Normalise inflated per-item prices using the category's median markup.
-
-    The Atlas stores the box-conversion artefact directly in preco_unitario_brl
-    for 25,555 of 147,042 items (17%). Left in, DESCARTAVEIS alone reports
-    R$162.8M of revenue that never existed. We recompute the item price as
-    custo_referencia * category_median_markup when the original markup exceeds
-    MARKUP_SANITY_MAX, preserving discounts.
-
-    Returns the cleaned frame and how many rows were fixed.
-    """
-    df = itens.merge(
-        produtos[["produto_id", "categoria", "custo_referencia_brl"]],
-        on="produto_id", how="left",
-    )
-    df["_markup"] = df["preco_unitario_brl"] / df["custo_referencia_brl"].replace(0, np.nan)
-    sane = df[df["_markup"] <= MARKUP_SANITY_MAX]
-    cat_markup = sane.groupby("categoria")["_markup"].median()
-    bad = df["_markup"] > MARKUP_SANITY_MAX
-    n_fixed = int(bad.sum())
-    if n_fixed:
-        new_price = (df.loc[bad, "custo_referencia_brl"]
-                     * df.loc[bad, "categoria"].map(cat_markup)).round(2)
-        df.loc[bad, "preco_unitario_brl"] = new_price
-        df.loc[bad, "valor_mercadoria_brl"] = (
-            df.loc[bad, "quantidade_expedida"] * new_price * (1 - df.loc[bad, "desconto_pct"])
-        ).round(2)
-        log.info("itens_pedido: %d items with inflated prices normalised", n_fixed)
-    return df.drop(columns=["_markup", "categoria", "custo_referencia_brl"]), n_fixed
-
-
 def clean_prices(produtos: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Flag Atlas SKUs whose list price is a box-conversion artefact.
-
-    The Atlas multiplies the unit price by the box factor twice for some CX
-    SKUs, producing markups of 100-450x (a R$7.24 box of disposable plates is
-    listed at R$3,292.50). Left in, these SKUs dominate every revenue chart.
-
-    Strategy: compute markup = preco_lista / custo. When markup exceeds
-    MARKUP_SANITY_MAX, recompute preco_lista as custo * median markup of the
-    same category's sane SKUs. Returns the cleaned frame and how many were fixed.
-    """
+    """Anomaly 7: normalise inflated list prices (box conversion applied twice)."""
     p = produtos.copy()
     p["_markup"] = p["preco_lista_brl"] / p["custo_referencia_brl"].replace(0, np.nan)
     sane = p[p["_markup"] <= MARKUP_SANITY_MAX]
@@ -272,10 +252,67 @@ def clean_prices(produtos: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return p.drop(columns=["_markup"]), n_fixed
 
 
-def load_and_validate_all(clean_price_anomalies: bool = True) -> dict[str, pd.DataFrame]:
+def clean_items(itens: pd.DataFrame, produtos: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Clean anomalies 7, 9, 10, 12 on the line-item table.
+
+    - anomaly 7: inflated unit price (box conversion applied twice)
+    - anomaly 9: desconto_pct shown but not applied to valor_mercadoria_brl.
+      We recompute valor_mercadoria = qty * preco * (1 - desconto) so the
+      discount is consistent with the displayed field.
+    - anomaly 10: negative quantidade_solicitada -> clipped to 0
+    - anomaly 12: orphan produto_id P999 -> row dropped
+    """
+    df = itens.merge(
+        produtos[["produto_id", "categoria", "custo_referencia_brl"]],
+        on="produto_id", how="left",
+    )
+    counts = {}
+
+    # anomaly 12: orphan SKU
+    orphan = df["categoria"].isna()
+    counts["orphan_produto"] = int(orphan.sum())
+    if counts["orphan_produto"]:
+        df = df[~orphan].copy()
+        log.info("itens_pedido: %d items with orphan produto_id dropped",
+                 counts["orphan_produto"])
+
+    # anomaly 10: negative quantity
+    neg = df["quantidade_solicitada"] < 0
+    counts["negative_qty"] = int(neg.sum())
+    if counts["negative_qty"]:
+        df.loc[neg, "quantidade_solicitada"] = 0
+        log.info("itens_pedido: %d negative quantities clipped to 0", counts["negative_qty"])
+
+    # anomaly 7: inflated price
+    df["_markup"] = df["preco_unitario_brl"] / df["custo_referencia_brl"].replace(0, np.nan)
+    sane = df[df["_markup"] <= MARKUP_SANITY_MAX]
+    cat_markup = sane.groupby("categoria")["_markup"].median()
+    inflated = df["_markup"] > MARKUP_SANITY_MAX
+    counts["inflated_price"] = int(inflated.sum())
+    if counts["inflated_price"]:
+        df.loc[inflated, "preco_unitario_brl"] = (
+            df.loc[inflated, "custo_referencia_brl"]
+            * df.loc[inflated, "categoria"].map(cat_markup)
+        ).round(2)
+        log.info("itens_pedido: %d inflated prices normalised", counts["inflated_price"])
+
+    # anomaly 9: recompute valor_mercadoria consistently
+    expected = (df["quantidade_expedida"] * df["preco_unitario_brl"]
+                * (1 - df["desconto_pct"])).round(2)
+    mismatched = (df["valor_mercadoria_brl"] - expected).abs() > 0.01
+    counts["discount_not_applied"] = int(mismatched.sum())
+    if counts["discount_not_applied"]:
+        df.loc[mismatched, "valor_mercadoria_brl"] = expected[mismatched]
+        log.info("itens_pedido: %d values recomputed (discount not applied upstream)",
+                 counts["discount_not_applied"])
+
+    return df.drop(columns=["_markup", "categoria", "custo_referencia_brl"]), counts
+
+
+def load_and_validate_all(clean_anomalies: bool = True) -> dict[str, pd.DataFrame]:
     tables = {name: validate(name) for name in RAW_FILES}
-    if clean_price_anomalies:
+    if clean_anomalies:
         tables["produtos"], _ = clean_prices(tables["produtos"])
-        tables["itens_pedido"], _ = clean_item_prices(
+        tables["itens_pedido"], _ = clean_items(
             tables["itens_pedido"], tables["produtos"])
     return tables

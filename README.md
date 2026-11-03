@@ -99,17 +99,31 @@ python scripts/generate_deep_charts.py
 
 The Atlas intentionally ships controlled data-quality defects. `src/data/validate.py` cleans them and logs every removal so the pipeline is auditable:
 
-| Anomaly | Raw | Clean | Handling |
-|---|---|---|---|
-| Duplicate order rows | 52,422 | 52,397 | exact + business-key dedup (manifesto) |
-| Order pointing at non-existent customer C9999 | +1 row | dropped | business-key dedup keeps first |
-| Junk values in numeric columns ("INVALIDO") | 12 rows | dropped | coerce + drop on critical cols |
-| Duplicate line items | 147,082 | 147,042 | same as above |
-| Capitalization drift (Faturado / FATURADO) | 4 rows | normalized | UPPER + strip on categorical cols |
-| Discount stored as percent (0-8) | all rows | /100 | normalized to fraction |
-| Box-conversion price inflation (CX SKUs at 100-450x cost) | 25,555 items (17%) | normalized | recompute from category median markup |
+The loader handles **14 controlled anomalies**. Each one has a regression test in
+`tests/test_anomalies.py`, so a future change cannot silently reintroduce it.
 
-Every step is covered by `tests/test_data_validation.py`.
+| # | Anomaly | Scale | Handling |
+|---|---|---|---|
+| 1 | Duplicate order rows | 52,422 → 52,397 | exact + business-key dedup |
+| 2 | Order pointing at non-existent customer `C9999` | 1 row | dedup keeps first |
+| 3 | Junk in numeric columns (`"INVALIDO"`) | 12 rows | coerce + drop on critical cols |
+| 4 | Duplicate `item_pedido_id` | 147,082 → 147,053 | dedup by business key |
+| 4b | Empty `item_pedido_id` | 1 row | dropped (reconciles the manifesto) |
+| 5 | Capitalization drift (`Faturado`, `Mercearia`) | 14 rows | UPPER + strip |
+| 6 | Discount stored as percent (0–8) | all items | /100 |
+| 7 | **Box-conversion price inflation** (CX SKUs at 100–450× cost) | 25,556 items | recompute from category median markup |
+| 8 | **Decimal comma** in price (`"11,09"`) | 12 items | parse PT-BR number |
+| 9 | **Discount shown but not applied** | 76,027 items | recompute `valor_mercadoria` |
+| 10 | Negative `quantidade_solicitada` | 1 item | clipped to 0 |
+| 11 | **Mixed date formats** (12 in DD/MM/YYYY) | 12 orders | ISO first, then `dayfirst` |
+| 12 | Orphan product `P999` | 1 item | dropped |
+| 13 | Optional nulls (legitimate) | 84 SKUs / 5,001 orders | kept, asserted |
+| 14 | Prices never ≤ 0 | — | asserted |
+
+Anomalies **7** and **9** were the expensive ones: #7 added R$ 211M of phantom
+revenue (caught by eyeballing a chart that started with an implausible category),
+and #9 made 50% of line items carry a discount that never reached the total.
+Both are now fixed and pinned by a test.
 
 ## Results on the real Atlas data
 

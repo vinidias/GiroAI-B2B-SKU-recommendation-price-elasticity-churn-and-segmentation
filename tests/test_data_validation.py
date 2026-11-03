@@ -32,12 +32,16 @@ def test_primary_keys_unique(tables):
 
 
 def test_deduplication_matches_manifesto():
-    # raw has 52422 rows; after cleaning the Atlas manifesto expects 52397.
-    # We additionally drop 12 rows with invalid critical columns -> 52385.
-    raw = pd.read_csv("data/raw/pedidos.csv", encoding="utf-8-sig", dtype=str)
-    assert len(raw) == 52422
-    clean = load_raw("pedidos")
-    assert len(clean) == 52385
+    # The Atlas manifesto states the expected clean counts:
+    #   pedidos.csv      52422 -> 52397
+    #   itens_pedido.csv 147082 -> 147053
+    # (duplicates, a bad customer and one empty primary key account for the gap)
+    raw_p = pd.read_csv("data/raw/pedidos.csv", encoding="utf-8-sig", dtype=str)
+    raw_i = pd.read_csv("data/raw/itens_pedido.csv", encoding="utf-8-sig", dtype=str)
+    assert len(raw_p) == 52422
+    assert len(raw_i) == 147082
+    assert len(load_raw("pedidos")) == 52397
+    assert len(load_raw("itens_pedido")) == 147053
 
 
 def test_status_normalized(tables):
