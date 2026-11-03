@@ -31,7 +31,6 @@ def fit_elasticity(df: pd.DataFrame, segment_col: str = "categoria",
         work["_lq"] = work["log_qty"] - g["log_qty"].transform("mean")
         formula = "_lq ~ _lp - 1"
         model = smf.ols(formula, data=work).fit(cov_type="HC3")
-        pooled = float(model.params.get("_lp", np.nan))
         rows = []
         for cat in sorted(work[segment_col].dropna().unique()):
             sub = work[work[segment_col] == cat]
