@@ -18,6 +18,7 @@ dependencies = [
     "matplotlib>=3.8",
     "seaborn>=0.13",
     "python-dotenv>=1.0",
+    "agrobr>=2.0",
 ]
 
 [project.optional-dependencies]

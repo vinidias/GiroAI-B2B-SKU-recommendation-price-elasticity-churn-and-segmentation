@@ -14,7 +14,8 @@ def _order_totals(pedidos: pd.DataFrame, itens: pd.DataFrame) -> pd.DataFrame:
     return pedidos.merge(agg, on="pedido_id", how="left").fillna({"n_skus": 0, "n_itens": 0, "receita": 0.0})
 
 
-def build_elasticity_features(pedidos, itens, produtos, clientes) -> pd.DataFrame:
+def build_elasticity_features(pedidos, itens, produtos, clientes,
+                                cepea_daily=None, with_macro: bool = True) -> pd.DataFrame:
     df = itens.merge(pedidos[["pedido_id", "cliente_id", "data_pedido"]], on="pedido_id", how="left")
     df = df.merge(clientes[["cliente_id", "canal", "regiao"]], on="cliente_id", how="left")
     df = df.merge(produtos[["produto_id", "categoria", "custo_unitario"]], on="produto_id", how="left")
@@ -24,8 +25,20 @@ def build_elasticity_features(pedidos, itens, produtos, clientes) -> pd.DataFram
     df["log_preco"] = np.log(df["preco_liquido"].clip(lower=1e-6))
     df["log_custo"] = np.log(df["custo_unitario"].clip(lower=1e-6))
     df["margem_unit"] = df["preco_liquido"] - df["custo_unitario"]
-    return df[["pedido_id", "cliente_id", "produto_id", "categoria", "canal", "regiao",
-               "mes", "log_qty", "log_preco", "log_custo", "margem_unit", "valor_total"]].dropna(subset=["log_preco"])
+    out = df[["pedido_id", "cliente_id", "produto_id", "categoria", "canal", "regiao",
+              "data_pedido", "mes", "log_qty", "log_preco", "log_custo",
+              "margem_unit", "valor_total"]].dropna(subset=["log_preco"])
+
+    if with_macro:
+        try:
+            from src.data.macro import attach_macro_features
+            out = attach_macro_features(out, cepea_daily=cepea_daily)
+        except Exception as exc:  # keep pipeline resilient
+            import logging
+            logging.getLogger(__name__).warning("Macro features skipped: %s", exc)
+            out["preco_commodity"] = np.nan
+            out["log_preco_commodity"] = np.nan
+    return out
 
 
 def build_churn_features(clientes, pedidos, itens, reference_date=None) -> pd.DataFrame:

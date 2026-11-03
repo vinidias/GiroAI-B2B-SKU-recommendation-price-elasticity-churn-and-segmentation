@@ -43,10 +43,21 @@ def main() -> None:
     mlflow.set_experiment("giro-ai")
 
     with mlflow.start_run(run_name="full-pipeline"):
+        from src.data.macro import fetch_cepea_daily
+        try:
+            cepea = fetch_cepea_daily()
+            log.info("CEPEA data: %d rows", len(cepea))
+        except Exception as exc:
+            log.warning("CEPEA unavailable, proceeding without macro: %s", exc)
+            cepea = None
         el_df = build_elasticity_features(tables["pedidos"], tables["itens_pedido"],
-                                         tables["produtos"], tables["clientes"])
-        el_model, el_table = fit_elasticity(el_df, segment_col="categoria")
+                                         tables["produtos"], tables["clientes"],
+                                         cepea_daily=cepea)
+        el_model, el_table = fit_elasticity(el_df, segment_col="categoria",
+                                            use_macro=cepea is not None and len(cepea) > 0)
         mlflow.log_metric("elasticity_r2", float(el_model.rsquared))
+        mlflow.log_metric("elasticity_has_macro",
+                          int("log_preco_commodity" in el_model.params.index))
         el_table.to_csv("data/processed/elasticity_by_category.csv", index=False)
         mlflow.log_artifact("data/processed/elasticity_by_category.csv")
         log.info("Elasticity R2=%.3f", el_model.rsquared)
