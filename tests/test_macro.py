@@ -1,10 +1,9 @@
 ﻿import pandas as pd
 import pytest
 
-from src.data.macro import (CATEGORY_TO_COMMODITY, attach_macro_features,
-                            monthly_macro)
-from src.features.build import build_elasticity_features
+from src.data.macro import CATEGORY_TO_COMMODITY, monthly_macro
 from src.data.synthetic import generate
+from src.features.build import build_elasticity_features
 
 
 @pytest.fixture(scope="module")
@@ -16,7 +15,7 @@ def macro_frame():
         rows.append(pd.DataFrame({
             "data": dates,
             "produto": prod,
-            "valor": 100.0 + (dates.dayofyear.values * 0.1),
+            "valor": 100.0 + (dates.day_of_year.values * 0.1),
         }))
     return pd.concat(rows, ignore_index=True)
 
@@ -38,11 +37,10 @@ def test_attach_macro_adds_columns(macro_frame):
 
 
 def test_attach_macro_graceful_when_missing():
-    tables = generate(n_customers=10, n_products=5, n_orders=50, days=60)
+    tables = generate(n_customers=10, n_products=20, n_orders=50, days=60)
     df = build_elasticity_features(tables["pedidos"], tables["itens_pedido"],
                                    tables["produtos"], tables["clientes"],
                                    cepea_daily=pd.DataFrame(columns=["data", "produto", "valor"]))
     assert "log_preco_commodity" in df.columns
-    # empty CEPEA -> NaN, model would skip macro term
     assert df["log_preco_commodity"].isna().all()
 
