@@ -64,8 +64,9 @@ def main() -> None:
         mlflow.log_metric("elasticity_r2", float(el_model.rsquared))
         mlflow.log_metric("elasticity_has_cepea",
                           int("log_preco_commodity" in el_model.params.index))
-        mlflow.log_metric("elasticity_has_usda",
-                          int("log_producao_usda" in el_model.params.index))
+        # USDA producao is exposed in el_df for EDA, not in the OLS (collinear)
+        mlflow.log_metric("elasticity_usda_feature_rows",
+                          int(el_df["log_producao_usda"].notna().sum()) if "log_producao_usda" in el_df else 0)
         el_table.to_csv("data/processed/elasticity_by_category.csv", index=False)
         mlflow.log_artifact("data/processed/elasticity_by_category.csv")
         log.info("Elasticity R2=%.3f", el_model.rsquared)

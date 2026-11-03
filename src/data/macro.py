@@ -97,9 +97,13 @@ def monthly_macro(cepea_daily: pd.DataFrame) -> pd.DataFrame:
 
 
 def fetch_usda_psd(commodities: list[str] | None = None,
-                   market_year: int | None = None,
+                   market_years: list[int] | None = None,
                    use_cache: bool = True) -> pd.DataFrame:
-    """Return long DataFrame [commodity, market_year, attribute, value]."""
+    """Return long DataFrame [commodity, market_year, attribute, value].
+
+    Defaults to the current year and the four preceding ones so the feature
+    frame can be joined onto orders from earlier years.
+    """
     if use_cache and USDA_CACHE.exists():
         log.info("Loading USDA cache from %s", USDA_CACHE)
         return pd.read_parquet(USDA_CACHE)
@@ -108,20 +112,25 @@ def fetch_usda_psd(commodities: list[str] | None = None,
         log.warning("AGROBR_USDA_API_KEY not set; skipping USDA PSD")
         return pd.DataFrame(columns=["commodity", "market_year", "attribute", "value"])
 
+    if market_years is None:
+        current_year = pd.Timestamp.today().year
+        market_years = list(range(current_year - 4, current_year + 1))
+
     slugs = commodities or list(USDA_COMMODITY.values())
     frames = []
     for slug in slugs:
-        try:
-            from agrobr.sync import usda
+        for year in market_years:
+            try:
+                from agrobr.sync import usda
 
-            df = usda.psd(slug, country="BR", market_year=market_year)
-            if df is None or df.empty:
-                continue
-            df = df.copy()
-            df["commodity"] = slug
-            frames.append(df[["commodity", "market_year", "attribute", "value"]])
-        except Exception as exc:
-            log.warning("USDA PSD fetch failed for %s: %s", slug, exc)
+                df = usda.psd(slug, country="BR", market_year=year)
+                if df is None or df.empty:
+                    continue
+                df = df.copy()
+                df["commodity"] = slug
+                frames.append(df[["commodity", "market_year", "attribute", "value"]])
+            except Exception as exc:
+                log.warning("USDA PSD fetch failed for %s/%s: %s", slug, year, exc)
 
     if not frames:
         return pd.DataFrame(columns=["commodity", "market_year", "attribute", "value"])
@@ -224,6 +233,9 @@ def attach_macro_features(elasticity_df: pd.DataFrame,
     else:
         prod = prod.rename(columns={"commodity": "usda_slug"})
         out["usda_slug"] = out["commodity"].map(USDA_COMMODITY)
+        # Strict exact-year merge only. A per-category fallback would make
+        # producao_usda constant within each category/year, which is collinear
+        # with the category dummies and produces a rank-deficient design matrix.
         out = out.merge(prod, on=["usda_slug", "market_year"], how="left")
         out["producao_usda"] = pd.to_numeric(out["producao_usda"], errors="coerce")
         out["log_producao_usda"] = np.log1p(out["producao_usda"])

@@ -9,13 +9,15 @@ import statsmodels.formula.api as smf
 def fit_elasticity(df: pd.DataFrame, segment_col: str = "categoria",
                    use_macro: bool = True):
     base = f"log_qty ~ log_preco * C({segment_col})"
+    # Only CEPEA is added: log_preco_commodity varies within category x month,
+    # while log_producao_usda is constant within category x year and therefore
+    # collinear with the category dummies (rank deficiency). USDA production
+    # stays in the feature frame for EDA but is not used by this OLS.
     macro_terms = ""
-    if use_macro:
-        if "log_preco_commodity" in df.columns and df["log_preco_commodity"].notna().any():
-            macro_terms += " + log_preco_commodity"
-        if "log_producao_usda" in df.columns and df["log_producao_usda"].notna().any():
-            macro_terms += " + log_producao_usda"
-    formula = base + macro_terms + " + log_custo + margem_unit"
+    if use_macro and "log_preco_commodity" in df.columns and df["log_preco_commodity"].notna().any():
+        macro_terms += " + log_preco_commodity"
+    # Drop log_custo: it correlates 0.97 with log_preco here (price = cost x markup).
+    formula = base + macro_terms + " + margem_unit"
     model = smf.ols(formula, data=df).fit(cov_type="HC3")
     rows = []
     base = model.params.get("log_preco", np.nan)
