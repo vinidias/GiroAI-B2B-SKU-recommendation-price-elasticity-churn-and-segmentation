@@ -15,11 +15,11 @@
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate            # Windows
+.venv\Scripts\activate
 pip install -e ".[dev]"
 
-python -m src.data.synthetic       # fallback synthetic dataset (Atlas layout)
-python -m pipelines.train          # trains all four models + logs to MLflow
+python -m src.data.synthetic
+python -m pipelines.train
 mlflow ui --backend-store-uri ./mlruns
 ```
 
@@ -39,22 +39,9 @@ The loader validates them against Pandera schemas and the pipeline runs unchange
 1. Business Understanding - four commercial questions -> four models
 2. Data Understanding - Pandera schemas + EDA notebooks
 3. Data Preparation - `src/features/build.py`
-4. Modeling - `src/models/{elasticity,churn,segmentation,recommender}.py`
-5. Evaluation - MLflow metrics + `src/experiments/ab_test.py`
+4. Modeling - `src/models/`
+5. Evaluation - MLflow metrics + A/B tests
 6. Deployment - `pipelines/train.py` + drift monitoring
-
-## Layout
-
-```
-src/
-  data/          synthetic generator, Pandera schemas, loader
-  features/      elasticity, churn, segmentation, interaction builders
-  models/        statsmodels OLS, LightGBM, KMeans/DBSCAN, implicit ALS
-  experiments/   A/B test simulation
-  monitoring/    Evidently drift report
-pipelines/       end-to-end training with MLflow
-tests/           pytest for data, features, models, A/B
-```
 
 ## Metrics tracked
 
@@ -62,9 +49,3 @@ tests/           pytest for data, features, models, A/B
 - `seg_k`, `seg_silhouette`, `seg_davies_bouldin`
 - `recall_at_10`, `ab_p_value`, `ab_uplift_pct`
 
-## Next steps
-
-- `dvc init && dvc add data/raw` for dataset versioning
-- MLflow Model Registry stage transitions
-- Schedule drift monitoring daily
-- Fill notebooks 01-08 for the full CRISP-DM narrative

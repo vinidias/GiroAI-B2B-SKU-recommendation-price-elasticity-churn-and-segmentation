@@ -25,3 +25,4 @@ def test_simulate_experiment():
     out = simulate_experiment(tables["pedidos"], tables["itens_pedido"], uplift=0.10)
     assert "result" in out and "frame" in out
     assert out["result"].treatment_mean >= out["result"].control_mean
+

@@ -45,3 +45,4 @@ def test_recommender(tables):
     recs = recommend(rec, int(rec.user_ids[0]), n=5)
     assert len(recs) <= 5
     assert all(isinstance(i, int) for i, _ in recs)
+

@@ -1,4 +1,4 @@
-.PHONY: install data train test lint clean
+﻿.PHONY: install data train test lint clean
 
 install:
 	pip install -e ".[dev]"
@@ -17,3 +17,4 @@ lint:
 
 clean:
 	rm -rf .pytest_cache .ruff_cache mlruns data/interim data/processed
+

@@ -25,3 +25,4 @@ def test_itens_have_positive_qty(tables):
 
 def test_churn_label_binary(tables):
     assert set(tables["clientes"]["churn"].unique()).issubset({0, 1})
+

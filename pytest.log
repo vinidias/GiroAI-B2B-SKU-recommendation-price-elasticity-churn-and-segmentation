@@ -1,0 +1,71 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.2.0, pluggy-1.7.0
+rootdir: D:\Dev\giro-ai
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, Faker-40.44.0, cov-7.1.0, typeguard-4.6.0
+collected 16 items
+
+tests\test_ab_test.py ....                                               [ 25%]
+tests\test_data_validation.py ....                                       [ 50%]
+tests\test_features.py ....                                              [ 75%]
+tests\test_models.py ...F                                                [100%]
+
+================================== FAILURES ===================================
+______________________________ test_recommender _______________________________
+
+tables = {'clientes':     cliente_id          nome        regiao   canal data_cadastro  churn
+0            1  Cliente_0001     ....        0.1287        89.50
+3045        900          18  ...        0.0566       640.96
+
+[3046 rows x 6 columns], ...}
+
+    def test_recommender(tables):
+        inter = build_interactions(tables["pedidos"], tables["itens_pedido"])
+        rec = train_recommender(inter, factors=16, iterations=5)
+>       recs = recommend(rec, int(rec.user_ids[0]), n=5)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_models.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\models\recommender.py:51: in recommend
+    ids, scores = result.model.recommend(u, result.model.user_factors[u], N=n, filter_already_liked_items=True)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <implicit.cpu.als.AlternatingLeastSquares object at 0x00000262B04B79B0>
+userid = 0
+user_items = array([ 3.342268 ,  0.5979854, -2.2180624,  3.5656686,  6.114168 ,
+        5.35843  , 10.107633 , 10.295234 , -1.2137889, -2.191136 ,
+       10.298173 ,  4.40619  ,  6.7743835,  6.1855426,  7.5463686,
+        8.590828 ], dtype=float32)
+N = 5, filter_already_liked_items = True, filter_items = None
+recalculate_user = False, items = None
+
+    def recommend(
+        self,
+        userid,
+        user_items,
+        N=10,
+        filter_already_liked_items=True,
+        filter_items=None,
+        recalculate_user=False,
+        items=None,
+    ):
+        if filter_already_liked_items or recalculate_user:
+            if not isinstance(user_items, csr_matrix):
+>               raise ValueError("user_items needs to be a CSR sparse matrix")
+E               ValueError: user_items needs to be a CSR sparse matrix
+
+.venv\Lib\site-packages\implicit\cpu\matrix_factorization_base.py:47: ValueError
+---------------------------- Captured stderr call -----------------------------
+\r  0%|          | 0/5 [00:00<?, ?it/s]\r100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 5/5 [00:00<00:00, 266.52it/s]
+============================== warnings summary ===============================
+tests/test_models.py::test_recommender
+  D:\Dev\giro-ai\.venv\Lib\site-packages\implicit\cpu\als.py:96: RuntimeWarning: OpenBLAS is configured to use 12 threads. It is highly recommended to disable its internal threadpool by setting the environment variable 'OPENBLAS_NUM_THREADS=1' or by calling 'threadpoolctl.threadpool_limits(1, "blas")'. Having OpenBLAS use a threadpool can lead to severe performance issues here.
+    check_blas_config()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_models.py::test_recommender - ValueError: user_items needs ...
+================== 1 failed, 15 passed, 1 warning in 12.05s ===================

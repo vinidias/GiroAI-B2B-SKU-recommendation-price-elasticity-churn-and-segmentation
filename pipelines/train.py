@@ -1,8 +1,4 @@
-"""End-to-end training pipeline with MLflow tracking.
-
-Run:
-    python -m pipelines.train
-"""
+"""End-to-end training pipeline with MLflow tracking."""
 from __future__ import annotations
 
 import json
@@ -10,7 +6,7 @@ import logging
 
 import mlflow
 
-from src.config import DATA_DIR, MLRUNS_DIR, RAW_FILES
+from src.config import DATA_DIR, MLFLOW_DB, RAW_FILES
 from src.data.synthetic import generate, write_to_disk
 from src.data.validate import load_and_validate_all
 from src.experiments.ab_test import simulate_experiment
@@ -39,7 +35,7 @@ def main() -> None:
     tables = load_and_validate_all()
     log.info("Validated tables: %s", {k: len(v) for k, v in tables.items()})
 
-    mlflow.set_tracking_uri(str(MLRUNS_DIR))
+    mlflow.set_tracking_uri(f"sqlite:///{MLFLOW_DB.as_posix()}")
     mlflow.set_experiment("giro-ai")
 
     with mlflow.start_run(run_name="full-pipeline"):
@@ -49,7 +45,7 @@ def main() -> None:
         mlflow.log_metric("elasticity_r2", float(el_model.rsquared))
         el_table.to_csv("data/processed/elasticity_by_category.csv", index=False)
         mlflow.log_artifact("data/processed/elasticity_by_category.csv")
-        log.info("Elasticity R2=%.3f | %s", el_model.rsquared, el_table.to_dict("records"))
+        log.info("Elasticity R2=%.3f", el_model.rsquared)
 
         ch_df = build_churn_features(tables["clientes"], tables["pedidos"], tables["itens_pedido"])
         ch = train_churn(ch_df)
@@ -93,3 +89,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

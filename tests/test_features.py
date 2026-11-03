@@ -35,3 +35,4 @@ def test_interactions(tables):
     df = build_interactions(tables["pedidos"], tables["itens_pedido"])
     assert {"cliente_id", "produto_id", "n"}.issubset(df.columns)
     assert (df["n"] > 0).all()
+

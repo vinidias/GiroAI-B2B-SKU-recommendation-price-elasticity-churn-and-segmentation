@@ -1,0 +1,23 @@
+Collecting pandera
+  Using cached pandera-0.35.0-py3-none-any.whl.metadata (11 kB)
+Collecting implicit
+  Using cached implicit-0.7.3-cp312-cp312-win_amd64.whl.metadata (6.0 kB)
+Requirement already satisfied: packaging>=20.0 in .\.venv\Lib\site-packages (from pandera) (26.3)
+Requirement already satisfied: pydantic in .\.venv\Lib\site-packages (from pandera) (2.14.2)
+Requirement already satisfied: typeguard in .\.venv\Lib\site-packages (from pandera) (4.6.0)
+Requirement already satisfied: typing_extensions in .\.venv\Lib\site-packages (from pandera) (4.16.0)
+Requirement already satisfied: typing_inspect>=0.6.0 in .\.venv\Lib\site-packages (from pandera) (0.9.0)
+Requirement already satisfied: numpy>=1.17.0 in .\.venv\Lib\site-packages (from implicit) (2.5.4)
+Requirement already satisfied: scipy>=0.16 in .\.venv\Lib\site-packages (from implicit) (1.18.1)
+Requirement already satisfied: tqdm>=4.27 in .\.venv\Lib\site-packages (from implicit) (4.70.1)
+Requirement already satisfied: threadpoolctl in .\.venv\Lib\site-packages (from implicit) (3.7.0)
+Requirement already satisfied: colorama in .\.venv\Lib\site-packages (from tqdm>=4.27->implicit) (0.4.6)
+Requirement already satisfied: mypy-extensions>=0.3.0 in .\.venv\Lib\site-packages (from typing_inspect>=0.6.0->pandera) (1.1.0)
+Requirement already satisfied: annotated-types>=0.6.0 in .\.venv\Lib\site-packages (from pydantic->pandera) (0.8.0)
+Requirement already satisfied: pydantic-core==2.50.2 in .\.venv\Lib\site-packages (from pydantic->pandera) (2.50.2)
+Requirement already satisfied: typing-inspection>=0.4.4 in .\.venv\Lib\site-packages (from pydantic->pandera) (0.4.4)
+Using cached pandera-0.35.0-py3-none-any.whl (557 kB)
+Using cached implicit-0.7.3-cp312-cp312-win_amd64.whl (676 kB)
+Installing collected packages: implicit, pandera
+
+Successfully installed implicit-0.7.3 pandera-0.35.0
